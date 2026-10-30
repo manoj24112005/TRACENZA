@@ -1,0 +1,1415 @@
+diff --git a/DEPLOY_TRACENZA.md b/DEPLOY_TRACENZA.md
+new file mode 100644
+index 0000000..a31afcf
+--- /dev/null
++++ b/DEPLOY_TRACENZA.md
+@@ -0,0 +1,28 @@
++# Tracenza deployment (Vercel frontend + Render backend + PostgreSQL)
++
++Nothing has been deployed or pushed. These steps are for you to run.
++
++## Render (backend + database)
++1. Push the `tracenza-transformation` branch to your GitHub repo (your decision).
++2. Render dashboard > New > Blueprint > select the repo. It reads `render.yaml` (service `tracenza-api`, Docker, `./backend`; PostgreSQL `tracenza-db`).
++3. When prompted set: `FRONTEND_ORIGINS` = your Vercel URL (add after step 2 of Vercel; you can edit it later and redeploy). Leave `BOOTSTRAP_ADMIN_*` empty in `demo` mode.
++4. Wait for the deploy, then check `https://<service>.onrender.com/health` and `/docs`. The service URL may carry a suffix if the name is taken; use the exact URL Render shows.
++5. Seed demo data from your machine against the Render database (Render free has no shell). Copy the database's **External** connection string:
++   `cd backend && DATABASE_URL="<external url>" python ../scripts/generate_demo_data.py && DATABASE_URL="<external url>" python ../scripts/seed_tracenza_demo.py`
++   (requires `pip install -r requirements.txt`; the scripts add data, they do not reset unless you pass `--reset`.)
++
++## Vercel (frontend)
++1. New Project > import the repo. Root Directory: `frontend`. Framework: Vite. Install: `npm ci`. Build: `npm run build`. Output: `dist`.
++2. Environment variable (Production): `VITE_API_URL` = `https://<your-render-service>.onrender.com/api`.
++3. Deploy, then put the Vercel URL into Render's `FRONTEND_ORIGINS` and redeploy the API.
++4. SPA routing is handled by `frontend/vercel.json`.
++
++## Environment variables
++Backend: `ENVIRONMENT` (demo|production), `DATABASE_URL` (from Render DB), `SECRET_KEY` (generated), `FRONTEND_ORIGINS`, `USE_MINIO=false`, optional `SMTP_*`, `LOCAL_SCHEDULER_SECONDS` (default 300; 0 disables the in-process deadline sweep).
++Frontend: `VITE_API_URL`.
++
++## Known blockers
++- Render free PostgreSQL expires after a limited period and free web services sleep (first request can take about a minute). Use a paid DB for anything that must persist.
++- Uploaded files use local disk on Render (ephemeral, lost on redeploy) because MinIO is not provisioned. Seeded documents will need re-seeding after a redeploy; use an S3/MinIO service for persistence.
++- `demo` mode exposes public default passwords listed on the login page; do not use real data.
++- The previous `validex-appar-reconx-api.onrender.com` URL is no longer referenced.
+diff --git a/backend/app/api/__init__.py b/backend/app/api/__init__.py
+index 8071dec..894b7ee 100644
+--- a/backend/app/api/__init__.py
++++ b/backend/app/api/__init__.py
+@@ -16,12 +16,13 @@ from app.api.verification import router as verification_router
+ from app.api.triage import router as triage_router
+ from app.api.deadlines import router as deadlines_router
+ from app.api.workflow import router as workflow_router
++from app.api.tracenza import router as tracenza_router
+ 
+ api_router = APIRouter(prefix="/api")
+ 
+ for r in (auth_router, applications_router, documents_router, validation_router, verification_router,
+           compliance_router, infrastructure_router, dashboard_router, audit_router, notifications_router, admin_router,
+-          triage_router, deadlines_router, workflow_router):
++          triage_router, deadlines_router, workflow_router, tracenza_router):
+     api_router.include_router(r)
+ 
+ __all__ = ["api_router"]
+diff --git a/backend/app/api/deadlines.py b/backend/app/api/deadlines.py
+index a6a1a7b..1037223 100644
+--- a/backend/app/api/deadlines.py
++++ b/backend/app/api/deadlines.py
+@@ -5,10 +5,12 @@ from typing import Annotated
+ from uuid import UUID
+ 
+ from fastapi import APIRouter, Depends, HTTPException, Query
++from sqlalchemy import or_
+ from sqlalchemy.orm import Session
+ 
+ from app.core.database import get_db
+ from app.core.dependencies import get_application_for_user, get_current_user, require_official
++from app.models.application import Application
+ from app.models.deadline import Deadline, DeadlineStatus
+ from app.models.user import User, UserRole
+ from app.schemas.deadline import DeadlineCreate, DeadlineResponse, DeadlineStatusUpdate
+@@ -25,6 +27,9 @@ def list_deadlines(db: Annotated[Session, Depends(get_db)], user: Annotated[User
+     q = db.query(Deadline).join(Deadline.application)
+     if user.role == UserRole.INSTITUTION:
+         q = q.filter(Deadline.application.has(institution_id=user.id))
++    elif user.role in (UserRole.SCRUTINY, UserRole.EXPERT, UserRole.APPROVER):
++        # Same reviewer-assignment scope as the application list
++        q = q.filter(or_(Application.assigned_reviewer_id.is_(None), Application.assigned_reviewer_id == user.id))
+     if status:
+         q = q.filter(Deadline.status == status)
+     if kind:
+@@ -61,8 +66,9 @@ def update_deadline(deadline_id: UUID, data: DeadlineStatusUpdate, db: Annotated
+     d = db.query(Deadline).filter(Deadline.id == deadline_id).first()
+     if not d:
+         raise HTTPException(status_code=404, detail="Deadline not found")
+-    if user.role == UserRole.INSTITUTION and d.application.institution_id != user.id:
+-        raise HTTPException(status_code=404, detail="Deadline not found")
++    get_application_for_user(db, d.application_id, user)  # same object-level access as the application
++    if user.role == UserRole.INSTITUTION and d.kind.value not in ("undertaking", "lease_expiry", "document_expiry"):
++        raise HTTPException(status_code=403, detail="Institutions can update only their undertaking and expiry records")
+     if user.role == UserRole.INSTITUTION and data.status == DeadlineStatus.CANCELLED:
+         raise HTTPException(status_code=403, detail="Institutions cannot cancel deadlines")
+     d.status = data.status
+diff --git a/backend/app/api/tracenza.py b/backend/app/api/tracenza.py
+new file mode 100644
+index 0000000..ea900b1
+--- /dev/null
++++ b/backend/app/api/tracenza.py
+@@ -0,0 +1,201 @@
++"""Tracenza views derived from live records: pipeline stages, pendency overview, dependency radar.
++
++Nothing here is stored separately: stages are derived from the existing application status and audit
++ledger, and radar blockers are derived from open findings, documents, deadlines and alerts. The stage
++sequence is a demonstration sequence, not an official AICTE handbook stage list.
++"""
++
++from collections import defaultdict
++from datetime import datetime, timedelta, timezone
++from typing import Annotated
++import uuid
++
++from fastapi import APIRouter, Depends
++from sqlalchemy.orm import Session
++
++from app.core.database import get_db
++from app.core.dependencies import get_application_for_user, get_current_user, is_official, require_official
++from app.models.application import Application, ApplicationStatus
++from app.models.audit_log import AuditLog
++from app.models.deadline import Deadline, DeadlineStatus
++from app.models.document import Document, DocumentStatus
++from app.models.notification import Notification, NotificationStatus
++from app.models.user import User, UserRole
++from app.models.verification import Verification, VerificationStatus
++from app.services.dashboard_service import DashboardService
++from app.services.triage_service import red_status
++
++router = APIRouter(prefix="/tracenza", tags=["Tracenza pipeline, pendency and radar"])
++
++STAGES = [
++    {"key": "drafted", "label": "Application drafted", "role": "institution"},
++    {"key": "submitted", "label": "Submitted", "role": "system"},
++    {"key": "scrutiny", "label": "Under scrutiny", "role": "scrutiny"},
++    {"key": "verified", "label": "Verified", "role": "scrutiny"},
++    {"key": "decision", "label": "Final decision", "role": "approver"},
++]
++STATUS_STAGE = {
++    ApplicationStatus.DRAFT: 0, ApplicationStatus.SUBMITTED: 1, ApplicationStatus.UNDER_REVIEW: 2,
++    ApplicationStatus.DEFICIENCY_FOUND: 2, ApplicationStatus.VERIFIED: 3,
++    ApplicationStatus.APPROVED: 4, ApplicationStatus.REJECTED: 4,
++}
++DEMO_NOTE = "Demonstration stage sequence derived from live status and audit records; not an official AICTE stage list."
++
++
++def _aware(dt: datetime | None) -> datetime | None:
++    if dt is None:
++        return None
++    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
++
++
++def _stage_entry_times(db: Session, app: Application) -> dict[int, datetime]:
++    entered: dict[int, datetime] = {}
++    logs = (db.query(AuditLog).filter(AuditLog.application_id == app.id)
++            .filter(AuditLog.action.in_(["APPLICATION_CREATED", "APPLICATION_SUBMITTED", "APPLICATION_RESUBMITTED",
++                                         "APPLICATION_DECISION"]))
++            .order_by(AuditLog.created_at.asc()).all())
++    for l in logs:
++        at = _aware(l.created_at)
++        d = l.details or {}
++        if l.action == "APPLICATION_CREATED":
++            entered[0] = at
++        elif l.action in ("APPLICATION_SUBMITTED", "APPLICATION_RESUBMITTED"):
++            entered[1] = at
++        else:
++            try:
++                idx = STATUS_STAGE[ApplicationStatus(d.get("to"))]
++                entered[idx] = at
++            except (ValueError, KeyError):
++                pass
++    return entered
++
++
++def _hours_since(dt: datetime | None, now: datetime) -> float | None:
++    dt = _aware(dt)
++    return round((now - dt).total_seconds() / 3600, 1) if dt else None
++
++
++@router.get("/pipeline/{app_id}")
++def application_pipeline(app_id: uuid.UUID, db: Annotated[Session, Depends(get_db)],
++                         user: Annotated[User, Depends(get_current_user)]):
++    """Stage progression for one application. Institutions get stages only (no findings)."""
++    app = get_application_for_user(db, app_id, user)
++    now = datetime.now(timezone.utc)
++    current = STATUS_STAGE[app.status]
++    entered = _stage_entry_times(db, app)
++    rejected = app.status == ApplicationStatus.REJECTED
++    stages = []
++    for i, s in enumerate(STAGES):
++        state = "done" if i < current else "current" if i == current else "pending"
++        label = s["label"]
++        if i == 4 and app.status in (ApplicationStatus.APPROVED, ApplicationStatus.REJECTED):
++            state, label = "done", "Approved" if app.status == ApplicationStatus.APPROVED else "Rejected"
++        stages.append({**s, "label": label, "state": state, "entered_at": entered.get(i).isoformat() if entered.get(i) else None})
++    open_deadlines = db.query(Deadline).filter(Deadline.application_id == app.id, Deadline.status == DeadlineStatus.OPEN).all()
++    pending_actions = []
++    if app.status == ApplicationStatus.DEFICIENCY_FOUND:
++        pending_actions.append({"owner_role": "institution", "action": "Respond to clarification request and resubmit",
++                                "due_at": app.rectification_due.isoformat() if app.rectification_due else None})
++    if app.status in (ApplicationStatus.SUBMITTED, ApplicationStatus.UNDER_REVIEW):
++        pending_actions.append({"owner_role": "scrutiny", "action": "Scrutiny review and verification", "due_at": None})
++    if app.status == ApplicationStatus.VERIFIED:
++        pending_actions.append({"owner_role": "approver", "action": "Final decision by approving officer", "due_at": None})
++    for d in open_deadlines:
++        pending_actions.append({"owner_role": "institution" if d.kind.value in ("undertaking", "lease_expiry", "document_expiry") else "official",
++                                "action": d.title, "due_at": _aware(d.due_at).isoformat()})
++    return {
++        "application_id": str(app.id), "application_number": app.application_number, "institution_name": app.institution_name,
++        "status": app.status.value, "returned_for_clarification": app.status == ApplicationStatus.DEFICIENCY_FOUND,
++        "rejected": rejected, "current_stage": current, "stages": stages,
++        "hours_in_current_stage": _hours_since(entered.get(current) or app.updated_at or app.submitted_at, now),
++        "pending_actions": pending_actions, "note": DEMO_NOTE,
++        "human_decision_required": app.status not in (ApplicationStatus.APPROVED, ApplicationStatus.REJECTED),
++    }
++
++
++@router.get("/overview")
++def pendency_overview(db: Annotated[Session, Depends(get_db)], user: Annotated[User, Depends(require_official)]):
++    """Pendency: stage counts, ageing, workload and deadline summary for the signed-in official's scope."""
++    now = datetime.now(timezone.utc)
++    apps = DashboardService._apps(db, user)
++    ids = [a.id for a in apps]
++    by_stage = defaultdict(lambda: {"count": 0, "age_hours": []})
++    ageing = {"under_3_days": 0, "3_to_7_days": 0, "7_to_14_days": 0, "over_14_days": 0}
++    workload: dict[str, int] = defaultdict(int)
++    open_apps = [a for a in apps if a.status not in (ApplicationStatus.APPROVED, ApplicationStatus.REJECTED)]
++    names = {u.id: u.full_name for u in db.query(User).filter(User.role.in_(
++        [UserRole.SCRUTINY, UserRole.EXPERT, UserRole.APPROVER])).all()}
++    for a in apps:
++        idx = STATUS_STAGE[a.status]
++        by_stage[idx]["count"] += 1
++    for a in open_apps:
++        age = _hours_since(a.updated_at or a.submitted_at, now) or 0
++        by_stage[STATUS_STAGE[a.status]]["age_hours"].append(age)
++        days = age / 24
++        key = "under_3_days" if days < 3 else "3_to_7_days" if days < 7 else "7_to_14_days" if days < 14 else "over_14_days"
++        ageing[key] += 1
++        workload[names.get(a.assigned_reviewer_id, "Unassigned") if a.assigned_reviewer_id else "Unassigned"] += 1
++    stages = []
++    for i, s in enumerate(STAGES):
++        ages = by_stage[i]["age_hours"]
++        stages.append({"key": s["key"], "label": s["label"], "count": by_stage[i]["count"],
++                       "avg_age_hours": round(sum(ages) / len(ages), 1) if ages else None})
++    candidates = [s for s in stages if s["key"] in ("scrutiny", "verified") and s["count"]]
++    bottleneck = max(candidates, key=lambda s: (s["count"], s["avg_age_hours"] or 0))["label"] if candidates else None
++
++    dls = db.query(Deadline).filter(Deadline.status == DeadlineStatus.OPEN, Deadline.application_id.in_(ids)).order_by(Deadline.due_at.asc()).all() if ids else []
++    num = {a.id: a.application_number for a in apps}
++    overdue = [d for d in dls if _aware(d.due_at) < now]
++    soon = [d for d in dls if now <= _aware(d.due_at) <= now + timedelta(days=7)]
++    shown = [{"id": str(d.id), "title": d.title, "kind": d.kind.value, "application_id": str(d.application_id),
++              "application_number": num.get(d.application_id), "due_at": _aware(d.due_at).isoformat(),
++              "overdue": _aware(d.due_at) < now, "escalation_level": d.escalation_level} for d in dls[:8]]
++    unack = db.query(Notification).filter(Notification.recipient_id == user.id, Notification.status == NotificationStatus.SENT).count()
++    return {
++        "stages": stages, "ageing": ageing, "bottleneck_stage": bottleneck,
++        "workload": [{"officer": k, "open_applications": v} for k, v in sorted(workload.items(), key=lambda x: -x[1])],
++        "deadlines": {"open": len(dls), "overdue": len(overdue), "due_within_7_days": len(soon), "next": shown},
++        "unacknowledged_alerts": unack, "open_applications": len(open_apps), "note": DEMO_NOTE,
++        "ageing_note": "Age is time since the application last changed; bucket boundaries are display choices, not regulatory limits.",
++    }
++
++
++@router.get("/radar/{app_id}")
++def dependency_radar(app_id: uuid.UUID, db: Annotated[Session, Depends(get_db)],
++                     user: Annotated[User, Depends(require_official)]):
++    """What is blocking this case and for how long, derived from live records (officials only)."""
++    app = get_application_for_user(db, app_id, user)
++    now = datetime.now(timezone.utc)
++    stage_idx = STATUS_STAGE[app.status]
++    entered = _stage_entry_times(db, app)
++    nodes = [{"id": "case", "kind": "case", "label": app.application_number, "sub": app.institution_name, "severity": "info", "age_hours": None},
++             {"id": "stage", "kind": "stage", "label": STAGES[stage_idx]["label"], "sub": app.status.value.replace("_", " "),
++              "severity": "info", "age_hours": _hours_since(entered.get(stage_idx) or app.updated_at, now)}]
++    edges = [{"from": "case", "to": "stage", "label": "currently at"}]
++
++    def add(kind, label, sub, severity, at, owner):
++        nid = f"b{len(nodes)}"
++        nodes.append({"id": nid, "kind": kind, "label": label, "sub": sub, "severity": severity,
++                      "age_hours": _hours_since(at, now), "owner_role": owner})
++        edges.append({"from": nid, "to": "stage", "label": "blocks"})
++
++    red = red_status(db, app)
++    for f in red["unreviewed"]:
++        add("finding", (f.finding or "Red finding")[:70], "Awaiting officer confirm / override", "high", f.created_at, "scrutiny")
++    for f in red["confirmed"]:
++        add("finding", (f.finding or "Confirmed finding")[:70], "Confirmed anomaly blocks approval", "high", f.created_at, "scrutiny")
++    for d in db.query(Document).filter(Document.application_id == app.id, Document.is_current.is_(True),
++                                       Document.status.in_([DocumentStatus.PENDING, DocumentStatus.PROCESSING])).all():
++        add("document", d.original_filename[:60], "Still being processed", "medium", d.uploaded_at, "system")
++    pend = (db.query(Verification, Document).join(Document, Verification.document_id == Document.id)
++            .filter(Document.application_id == app.id, Verification.status.in_([VerificationStatus.PENDING, VerificationStatus.UNAVAILABLE])).all())
++    for v, d in pend:
++        add("source_check", f"Source check: {d.original_filename[:40]}", f"Status: {v.status.value} (simulated source)", "medium", d.uploaded_at, "system")
++    for dl in db.query(Deadline).filter(Deadline.application_id == app.id, Deadline.status == DeadlineStatus.OPEN).all():
++        late = _aware(dl.due_at) < now
++        add("obligation", dl.title[:70], ("Overdue since " if late else "Due ") + _aware(dl.due_at).strftime("%d %b %Y"),
++            "high" if late else "low", dl.due_at, "institution" if dl.kind.value in ("undertaking", "lease_expiry", "document_expiry") else "official")
++    for n in db.query(Notification).filter(Notification.application_id == app.id, Notification.status == NotificationStatus.SENT).all():
++        add("alert", n.subject[:70], "Not yet acknowledged", "medium", n.created_at, "recipient")
++    return {"application_id": str(app.id), "nodes": nodes, "edges": edges, "blocker_count": len(nodes) - 2,
++            "note": "Derived from live findings, documents, source checks, obligations and alerts. " + DEMO_NOTE}
+diff --git a/backend/app/core/config.py b/backend/app/core/config.py
+index 966d19f..6c5454f 100644
+--- a/backend/app/core/config.py
++++ b/backend/app/core/config.py
+@@ -14,12 +14,12 @@ class Settings(BaseSettings):
+     """Application settings loaded from environment variables."""
+ 
+     # App
+-    APP_NAME: str = "Validex"
++    APP_NAME: str = "Tracenza"
+     ENVIRONMENT: str = "development"
+     DEBUG: bool = False
+     CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173"
+     # Deployed frontend(s); always allowed in addition to CORS_ORIGINS
+-    FRONTEND_ORIGINS: str = "https://validex-two.vercel.app"
++    FRONTEND_ORIGINS: str = ""
+ 
+     # Database (defaults to local sqlite for standalone run, overridden by .env in Docker)
+     DATABASE_URL: str = "sqlite:///./validex.db"
+@@ -27,6 +27,8 @@ class Settings(BaseSettings):
+     # Redis / Celery. When USE_CELERY is false, heavy jobs run as FastAPI background tasks.
+     REDIS_URL: str = "redis://localhost:6379/0"
+     USE_CELERY: bool = False
++    # Without Celery, run the deadline/escalation sweep inside the API process every N seconds (0 = off)
++    LOCAL_SCHEDULER_SECONDS: int = 300
+     # Process uploads synchronously inside the request (tests, seeding). Otherwise background task.
+     INLINE_PROCESSING: bool = False
+     # Background documents processed at once (1 keeps memory low on 512 MB hosts)
+@@ -80,7 +82,7 @@ class Settings(BaseSettings):
+     SMTP_PORT: int = 587
+     SMTP_USER: str = ""
+     SMTP_PASSWORD: str = ""
+-    SMTP_FROM: str = "noreply@validex.local"
++    SMTP_FROM: str = "noreply@tracenza.local"
+ 
+     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+ 
+diff --git a/backend/app/main.py b/backend/app/main.py
+index f98a14e..d946e3a 100644
+--- a/backend/app/main.py
++++ b/backend/app/main.py
+@@ -1,5 +1,6 @@
+-"""FastAPI application entrypoint for the AICTE validation platform (Validex)."""
++"""FastAPI application entrypoint for Tracenza (SIH26262), built on the Validex validation platform."""
+ 
++import asyncio
+ import logging
+ from contextlib import asynccontextmanager
+ 
+@@ -79,11 +80,37 @@ def bootstrap_production_admin(db) -> bool:
+     return True
+ 
+ 
++async def _local_scheduler(interval: int):
++    """Deadline reminders and escalation when Celery is not running (local demo / single-process hosting)."""
++    from app.services.deadline_service import process_due_deadlines
++
++    def sweep():
++        db = SessionLocal()
++        try:
++            return process_due_deadlines(db)
++        finally:
++            db.close()
++
++    while True:
++        await asyncio.sleep(interval)
++        try:
++            result = await asyncio.to_thread(sweep)
++            if result["reminders_created"] or result["escalations_created"]:
++                logger.info("Deadline sweep: %s", result)
++        except Exception:  # never let the scheduler kill the API
++            logger.exception("Deadline sweep failed")
++
++
+ @asynccontextmanager
+ async def lifespan(app: FastAPI):
+-    logger.info("Starting Validex backend...")
++    logger.info("Starting Tracenza backend...")
+     init_db()
++    task = None
++    if not settings.USE_CELERY and settings.LOCAL_SCHEDULER_SECONDS > 0:
++        task = asyncio.create_task(_local_scheduler(settings.LOCAL_SCHEDULER_SECONDS))
+     yield
++    if task:
++        task.cancel()
+ 
+ 
+ app = FastAPI(
+diff --git a/backend/app/services/deadline_service.py b/backend/app/services/deadline_service.py
+index e2aa064..5600981 100644
+--- a/backend/app/services/deadline_service.py
++++ b/backend/app/services/deadline_service.py
+@@ -28,10 +28,10 @@ def process_due_deadlines(db: Session, now: datetime | None = None) -> dict[str,
+         recipient = d.assigned_to or d.application.institution_id
+         reminder_at = due - timedelta(hours=d.remind_before_hours)
+         if not d.reminder_sent and now >= reminder_at:
++            d.reminder_sent = True  # persist state before alerting so overlapping sweeps do not repeat it
+             _notify(db, d, recipient, f"Upcoming deadline: {d.title}",
+                     f"{d.title} for application {d.application.application_number} is due {due.isoformat()}.",
+                     "DEADLINE_REMINDER")
+-            d.reminder_sent = True
+             reminders += 1
+         overdue_hours = (now - due).total_seconds() / 3600
+         target_level = max(0, int(overdue_hours // d.escalate_after_hours)) if overdue_hours >= 0 else 0
+diff --git a/frontend/.env.production.example b/frontend/.env.production.example
+new file mode 100644
+index 0000000..977654d
+--- /dev/null
++++ b/frontend/.env.production.example
+@@ -0,0 +1,3 @@
++# Set in Vercel > Project > Settings > Environment Variables (Production)
++# Full Render API URL including /api. No localhost URLs in production.
++VITE_API_URL=https://tracenza-api.onrender.com/api
+diff --git a/frontend/index.html b/frontend/index.html
+index 5fa3d53..ee02973 100644
+--- a/frontend/index.html
++++ b/frontend/index.html
+@@ -3,20 +3,20 @@
+   <head>
+     <meta charset="UTF-8" />
+     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+-    <meta name="theme-color" content="#10395f" />
++    <meta name="theme-color" content="#0f2a47" />
+     <meta name="apple-mobile-web-app-capable" content="yes" />
+     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+     <link rel="manifest" href="/manifest.webmanifest" />
+     <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
+     <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+     <meta name="mobile-web-app-capable" content="yes" />
+-    <title>Validex | Approval Workflow</title>
+-    <meta name="description" content="Validex — AI-Powered Intelligent Decision-Support System for AICTE Institutional Approval, Fraud Detection, OCR Extraction & Governance Auditing" />
++    <title>Tracenza | AICTE Approval Workflow &amp; Compliance (SIH26262)</title>
++    <meta name="description" content="Tracenza — approval workflow automation, compliance monitoring and alert management prototype for SIH26262. Independent prototype; not an official AICTE system." />
+     <link rel="preconnect" href="https://fonts.googleapis.com">
+     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
++    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+   </head>
+-  <body class="bg-[#0B0F19] text-gray-100 min-h-screen">
++  <body class="bg-surface text-on-surface min-h-screen">
+     <div id="root"></div>
+     <script type="module" src="/src/main.tsx"></script>
+   </body>
+diff --git a/frontend/public/manifest.webmanifest b/frontend/public/manifest.webmanifest
+index 7b0223e..87d038a 100644
+--- a/frontend/public/manifest.webmanifest
++++ b/frontend/public/manifest.webmanifest
+@@ -1,8 +1,8 @@
+ {
+   "id": "/",
+-  "name": "Validex Approval Workflow",
+-  "short_name": "Validex",
+-  "description": "Validex institutional approval workflow and compliance workspace.",
++  "name": "Tracenza Approval Workflow",
++  "short_name": "Tracenza",
++  "description": "Tracenza approval workflow, obligations and compliance workspace (SIH26262 prototype).",
+   "lang": "en-IN",
+   "start_url": "/",
+   "scope": "/",
+diff --git a/frontend/public/sw.js b/frontend/public/sw.js
+index 0e43e44..496d0b6 100644
+--- a/frontend/public/sw.js
++++ b/frontend/public/sw.js
+@@ -1,4 +1,4 @@
+-const CACHE_NAME = 'validex-shell-v1';
++const CACHE_NAME = 'tracenza-shell-v1';
+ const APP_SHELL = ['/index.html', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png'];
+ 
+ self.addEventListener('install', (event) => {
+@@ -7,7 +7,7 @@ self.addEventListener('install', (event) => {
+ 
+ self.addEventListener('activate', (event) => {
+   event.waitUntil(caches.keys().then((keys) => Promise.all(
+-    keys.filter((key) => key.startsWith('validex-shell-') && key !== CACHE_NAME).map((key) => caches.delete(key)),
++    keys.filter((key) => key.startsWith('validex-shell-') || key.startsWith('tracenza-shell-') && key !== CACHE_NAME).map((key) => caches.delete(key)),
+   )).then(() => self.clients.claim()));
+ });
+ 
+diff --git a/frontend/src/App.tsx b/frontend/src/App.tsx
+index 3bf22a8..0983904 100644
+--- a/frontend/src/App.tsx
++++ b/frontend/src/App.tsx
+@@ -15,6 +15,8 @@ import { NoticesPage } from './pages/NoticesPage';
+ import { PortalApplicationPage } from './pages/PortalApplicationPage';
+ import { DeadlinesPage } from './pages/DeadlinesPage';
+ import { WorkflowPage } from './pages/WorkflowPage';
++import { PipelinePage } from './pages/PipelinePage';
++import { AlertsPage } from './pages/AlertsPage';
+ import type { UserRole } from './types';
+ 
+ const Protected: React.FC<{ children: React.ReactNode; roles?: UserRole[] }> = ({ children, roles }) => {
+@@ -51,6 +53,8 @@ export const App: React.FC = () => (
+           <Route path="applications/:id" element={<ApplicationRoute />} />
+           <Route path="notices" element={<Protected roles={['institution']}><NoticesPage /></Protected>} />
+           <Route path="deadlines" element={<DeadlinesPage />} />
++          <Route path="pipeline" element={<PipelinePage />} />
++          <Route path="alerts" element={<AlertsPage />} />
+           <Route path="compliance" element={<CompliancePage />} />
+           <Route path="infrastructure" element={<Protected roles={OFFICIALS}><InfrastructurePage /></Protected>} />
+           <Route path="audit" element={<Protected roles={OFFICIALS}><AuditPage /></Protected>} />
+diff --git a/frontend/src/api/client.ts b/frontend/src/api/client.ts
+index 1879f45..42bfb06 100644
+--- a/frontend/src/api/client.ts
++++ b/frontend/src/api/client.ts
+@@ -26,6 +26,9 @@ import type {
+   DeadlineItem,
+   DeadlineKind,
+   WorkflowTransitionItem,
++  PipelineView,
++  PendencyOverview,
++  RadarView,
+ } from '../types';
+ 
+ const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || '/api' });
+@@ -177,11 +180,17 @@ export const notificationsApi = {
+   acknowledge: async (id: string): Promise<NotificationItem> => (await api.post(`/notifications/${id}/acknowledge`)).data,
+ };
+ 
++export const tracenzaApi = {
++  pipeline: async (appId: string): Promise<PipelineView> => (await api.get(`/tracenza/pipeline/${appId}`)).data,
++  overview: async (): Promise<PendencyOverview> => (await api.get('/tracenza/overview')).data,
++  radar: async (appId: string): Promise<RadarView> => (await api.get(`/tracenza/radar/${appId}`)).data,
++};
++
+ export const deadlinesApi = {
+   list: async (): Promise<DeadlineItem[]> => (await api.get('/deadlines')).data,
+   create: async (data: { application_id: string; kind: DeadlineKind; title: string; description?: string; due_at: string; remind_before_hours: number; escalate_after_hours: number }) =>
+     (await api.post('/deadlines', data)).data as DeadlineItem,
+-  complete: async (id: string) => (await api.patch(`/deadlines/${id}`, { status: 'completed', reason: 'Marked complete in Validex' })).data as DeadlineItem,
++  complete: async (id: string) => (await api.patch(`/deadlines/${id}`, { status: 'completed', reason: 'Marked complete in Tracenza' })).data as DeadlineItem,
+   processDue: async (): Promise<{ reminders_created: number; escalations_created: number }> => (await api.post('/deadlines/process-due')).data,
+ };
+ 
+diff --git a/frontend/src/components/DependencyRadar.tsx b/frontend/src/components/DependencyRadar.tsx
+new file mode 100644
+index 0000000..dd3da78
+--- /dev/null
++++ b/frontend/src/components/DependencyRadar.tsx
+@@ -0,0 +1,62 @@
++import React from 'react';
++import type { RadarView, RadarNode } from '../types';
++
++const SEV: Record<string, { fill: string; stroke: string; text: string }> = {
++  high: { fill: '#FFDAD6', stroke: '#BA1A1A', text: '#93000A' },
++  medium: { fill: '#FEF3C7', stroke: '#D97706', text: '#78350F' },
++  low: { fill: '#E5EEFF', stroke: '#1D5FA8', text: '#00427D' },
++  info: { fill: '#0F2A47', stroke: '#0F2A47', text: '#FFFFFF' },
++};
++const KIND_LABEL: Record<string, string> = {
++  finding: 'Finding', document: 'Document', source_check: 'Source check', obligation: 'Obligation', alert: 'Alert', stage: 'Current stage', case: 'Case',
++};
++const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
++const age = (h: number | null) => (h == null ? '' : h < 48 ? `${Math.round(h)}h` : `${Math.round(h / 24)}d`);
++
++/** Blockers on the left, the stage they hold up in the middle, the case on the right. Pure SVG, no extra packages. */
++export const DependencyRadar: React.FC<{ radar: RadarView }> = ({ radar }) => {
++  const stage = radar.nodes.find((n) => n.kind === 'stage');
++  const kase = radar.nodes.find((n) => n.kind === 'case');
++  const blockers = radar.nodes.filter((n) => n.kind !== 'stage' && n.kind !== 'case');
++  const rowH = 62;
++  const H = Math.max(180, blockers.length * rowH + 30);
++  const midY = H / 2;
++  const by = (i: number) => 15 + i * rowH + 24;
++
++  const box = (n: RadarNode, x: number, y: number, w: number, key: string) => {
++    const c = SEV[n.severity] || SEV.low;
++    const dark = n.severity === 'info';
++    return (
++      <g key={key}>
++        <title>{`${n.label} — ${n.sub}`}</title>
++        <rect x={x} y={y - 24} width={w} height={48} rx={6} fill={c.fill} stroke={c.stroke} strokeWidth={1.2} />
++        <text x={x + 10} y={y - 6} fontSize={9} fontWeight={700} fill={dark ? '#B0C8ED' : c.stroke} style={{ textTransform: 'uppercase', letterSpacing: 0.4 }}>
++          {KIND_LABEL[n.kind] || n.kind}{n.age_hours != null && !dark ? ` · ${age(n.age_hours)}` : ''}
++        </text>
++        <text x={x + 10} y={y + 8} fontSize={11} fontWeight={600} fill={c.text}>{clip(n.label, Math.floor(w / 6.4))}</text>
++        <text x={x + 10} y={y + 20} fontSize={9.5} fill={dark ? '#B0C8ED' : '#43474D'}>{clip(n.sub, Math.floor(w / 5.6))}</text>
++      </g>
++    );
++  };
++
++  return (
++    <div>
++      <div className="overflow-x-auto">
++        <svg viewBox={`0 0 860 ${H}`} className="w-full min-w-[640px]" role="img" aria-label="Dependency radar: items blocking this application">
++          {blockers.map((b, i) => (
++            <path key={`e${b.id}`} d={`M 350 ${by(i)} C 400 ${by(i)}, 400 ${midY}, 450 ${midY}`} fill="none"
++              stroke={(SEV[b.severity] || SEV.low).stroke} strokeWidth={1.4} strokeDasharray={b.severity === 'high' ? undefined : '4 3'} />
++          ))}
++          {blockers.map((b, i) => box(b, 10, by(i), 340, b.id))}
++          {stage && box(stage, 450, midY, 190, stage.id)}
++          {kase && <path d={`M 640 ${midY} L 680 ${midY}`} stroke="#0F2A47" strokeWidth={1.6} />}
++          {kase && box(kase, 680, midY, 170, kase.id)}
++          {blockers.length === 0 && <text x={180} y={midY + 4} fontSize={12} fill="#43474D" textAnchor="middle">No open blockers</text>}
++        </svg>
++      </div>
++      <p className="mt-2 text-[11px] text-slate-500">
++        {radar.blocker_count} open blocker{radar.blocker_count === 1 ? '' : 's'}. Red = needs an officer; dashed = waiting on a process or date. Ages show how long each item has been open.
++      </p>
++    </div>
++  );
++};
+diff --git a/frontend/src/components/PendencyPanel.tsx b/frontend/src/components/PendencyPanel.tsx
+new file mode 100644
+index 0000000..f5d34a4
+--- /dev/null
++++ b/frontend/src/components/PendencyPanel.tsx
+@@ -0,0 +1,90 @@
++import React, { useEffect, useState } from 'react';
++import { Link } from 'react-router-dom';
++import { CalendarClock, Hourglass, BellRing, Layers } from 'lucide-react';
++import { errorMessage, tracenzaApi } from '../api/client';
++import type { PendencyOverview } from '../types';
++import { Card, Empty, Pill, Spinner, fmtDate } from './ui';
++
++const AGEING_LABELS: [keyof PendencyOverview['ageing'], string, string][] = [
++  ['under_3_days', '< 3 days', '#059669'], ['3_to_7_days', '3–7 days', '#1D5FA8'],
++  ['7_to_14_days', '7–14 days', '#D97706'], ['over_14_days', '> 14 days', '#BA1A1A'],
++];
++
++const Kpi: React.FC<{ label: string; value: React.ReactNode; icon: React.ElementType; tone: string; to?: string }> = ({ label, value, icon: Icon, tone, to }) => {
++  const body = (
++    <div className="rounded-lg border border-slate-200 bg-white p-3.5 shadow-sm">
++      <div className="flex items-center justify-between"><p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">{label}</p><Icon className={`h-4 w-4 ${tone}`} /></div>
++      <p className="mt-1 font-mono text-2xl font-semibold text-on-surface">{value}</p>
++    </div>
++  );
++  return to ? <Link to={to}>{body}</Link> : body;
++};
++
++/** Pipeline stage counts, ageing, workload and obligations for the signed-in official, from /api/tracenza/overview. */
++export const PendencyPanel: React.FC = () => {
++  const [data, setData] = useState<PendencyOverview | null>(null);
++  const [error, setError] = useState('');
++  useEffect(() => { tracenzaApi.overview().then(setData).catch((e) => setError(errorMessage(e))); }, []);
++
++  if (error) return <Card title="Pipeline & pendency"><p className="text-xs text-rose-700">{error}</p></Card>;
++  if (!data) return <Card title="Pipeline & pendency"><div className="flex justify-center p-6"><Spinner /></div></Card>;
++  const maxStage = Math.max(1, ...data.stages.map((s) => s.count));
++  const maxAge = Math.max(1, ...AGEING_LABELS.map(([k]) => data.ageing[k]));
++
++  return (
++    <section className="space-y-4" aria-label="Pipeline and pendency">
++      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
++        <Kpi label="Open applications" value={data.open_applications} icon={Layers} tone="text-secondary" to="/pipeline" />
++        <Kpi label="Obligations overdue" value={data.deadlines.overdue} icon={Hourglass} tone="text-rose-600" to="/deadlines" />
++        <Kpi label="Due in 7 days" value={data.deadlines.due_within_7_days} icon={CalendarClock} tone="text-amber-600" to="/deadlines" />
++        <Kpi label="Unacknowledged alerts" value={data.unacknowledged_alerts} icon={BellRing} tone="text-sky-600" to="/alerts" />
++      </div>
++      <div className="grid gap-4 lg:grid-cols-3">
++        <Card title="Pipeline by stage" actions={data.bottleneck_stage ? <Pill tone="amber">Bottleneck: {data.bottleneck_stage}</Pill> : undefined}>
++          <ul className="space-y-2.5">
++            {data.stages.map((s) => (
++              <li key={s.key}>
++                <div className="flex justify-between text-xs"><span className="font-medium text-slate-700">{s.label}</span>
++                  <span className="font-mono text-slate-500">{s.count}{s.avg_age_hours != null ? ` · avg ${s.avg_age_hours < 48 ? `${s.avg_age_hours}h` : `${Math.round(s.avg_age_hours / 24)}d`}` : ''}</span></div>
++                <div className="mt-1 h-2 rounded-full bg-surface-container"><div className="h-2 rounded-full bg-secondary" style={{ width: `${(s.count / maxStage) * 100}%` }} /></div>
++              </li>
++            ))}
++          </ul>
++        </Card>
++        <Card title="Ageing of open cases">
++          <ul className="space-y-2.5">
++            {AGEING_LABELS.map(([k, label, color]) => (
++              <li key={k}>
++                <div className="flex justify-between text-xs"><span className="font-medium text-slate-700">{label}</span><span className="font-mono text-slate-500">{data.ageing[k]}</span></div>
++                <div className="mt-1 h-2 rounded-full bg-surface-container"><div className="h-2 rounded-full" style={{ width: `${(data.ageing[k] / maxAge) * 100}%`, background: color }} /></div>
++              </li>
++            ))}
++          </ul>
++          <p className="mt-3 text-[11px] text-slate-400">{data.ageing_note}</p>
++        </Card>
++        <Card title="Workload by officer">
++          {data.workload.length === 0 ? <Empty title="No open cases" /> : (
++            <ul className="divide-y divide-slate-100 text-xs">
++              {data.workload.map((w) => <li key={w.officer} className="flex justify-between py-2"><span className="text-slate-700">{w.officer}</span><span className="font-mono font-semibold">{w.open_applications}</span></li>)}
++            </ul>
++          )}
++        </Card>
++      </div>
++      <Card title="Next obligations" actions={<Link to="/deadlines" className="text-xs font-semibold text-secondary">All obligations →</Link>}>
++        {data.deadlines.next.length === 0 ? <Empty title="No open obligations" hint="Run scripts/seed_tracenza_demo.py to add labelled demo obligations." /> : (
++          <ul className="divide-y divide-slate-100">
++            {data.deadlines.next.map((d) => (
++              <li key={d.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-xs">
++                <div className="min-w-0"><p className="truncate font-semibold text-slate-900">{d.title}</p>
++                  <Link to={`/applications/${d.application_id}`} className="text-[11px] text-secondary">{d.application_number || d.application_id}</Link></div>
++                <div className="flex items-center gap-2">{d.escalation_level > 0 && <Pill tone="rose">Escalation L{d.escalation_level}</Pill>}
++                  <Pill tone={d.overdue ? 'rose' : 'sky'}>{d.overdue ? 'Overdue' : 'Upcoming'}</Pill><span className="font-mono text-[11px] text-slate-500">{fmtDate(d.due_at)}</span></div>
++              </li>
++            ))}
++          </ul>
++        )}
++      </Card>
++      <p className="text-[11px] text-slate-400">{data.note}</p>
++    </section>
++  );
++};
+diff --git a/frontend/src/components/PwaInstallButton.tsx b/frontend/src/components/PwaInstallButton.tsx
+index 8df1160..8c3995b 100644
+--- a/frontend/src/components/PwaInstallButton.tsx
++++ b/frontend/src/components/PwaInstallButton.tsx
+@@ -28,8 +28,8 @@ export const PwaInstallButton: React.FC<{ compact?: boolean }> = ({ compact = fa
+         setPrompt(null);
+       }}
+       className={`inline-flex min-h-9 items-center justify-center gap-2 rounded-md border border-white/30 bg-white/10 px-3 text-xs font-semibold text-white transition-colors hover:bg-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300 ${compact ? 'w-10 px-0' : ''}`}
+-      aria-label="Install Validex on this device"
+-      title="Install Validex on this device"
++      aria-label="Install Tracenza on this device"
++      title="Install Tracenza on this device"
+     >
+       <Download className="h-4 w-4" />
+       {!compact && 'Install app'}
+diff --git a/frontend/src/components/layout/Header.tsx b/frontend/src/components/layout/Header.tsx
+index 83884c6..f712352 100644
+--- a/frontend/src/components/layout/Header.tsx
++++ b/frontend/src/components/layout/Header.tsx
+@@ -43,7 +43,7 @@ export const Header: React.FC<{ onMenuClick?: () => void }> = ({ onMenuClick })
+           />
+         </form>
+       ) : (
+-        <p className="hidden text-sm text-slate-600 sm:block">Prepare and submit your AICTE approval application.</p>
++        <p className="hidden text-sm text-slate-600 sm:block">Prepare, submit and track your approval application.</p>
+       )}
+ 
+       <div className="flex shrink-0 items-center gap-2 sm:gap-4">
+@@ -54,7 +54,7 @@ export const Header: React.FC<{ onMenuClick?: () => void }> = ({ onMenuClick })
+             <span>Decision-support mode</span>
+           </div>
+         )}
+-        <button onClick={() => navigate(isInstitution ? '/notices' : '/deadlines')} aria-label={isInstitution ? 'Clarification requests' : 'Notifications and deadlines'} className="relative p-2 rounded-xl bg-slate-100/80 border border-slate-200 text-slate-600 hover:text-slate-900 cursor-pointer">
++        <button onClick={() => navigate('/alerts')} aria-label="Alerts and escalations" className="relative p-2 rounded-xl bg-slate-100/80 border border-slate-200 text-slate-600 hover:text-slate-900 cursor-pointer">
+             <Bell className="w-4 h-4" />
+             {openNotices > 0 && (
+               <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center">{openNotices}</span>
+diff --git a/frontend/src/components/layout/Sidebar.tsx b/frontend/src/components/layout/Sidebar.tsx
+index b09c94c..d16628e 100644
+--- a/frontend/src/components/layout/Sidebar.tsx
++++ b/frontend/src/components/layout/Sidebar.tsx
+@@ -1,93 +1,104 @@
+-import React from 'react';
+-import { NavLink } from 'react-router-dom';
+-import { LayoutDashboard, FileCheck2, ShieldCheck, Camera, History, LogOut, Building2, Cpu, Settings, Bell, FolderOpen, CalendarClock, GitBranch, X } from 'lucide-react';
+-import { useAuth } from '../../context/AuthContext';
+-
+-export const Sidebar: React.FC<{ mobileOpen?: boolean; onNavigate?: () => void }> = ({ mobileOpen = false, onNavigate }) => {
+-  const { user, logout } = useAuth();
+-  const role = user?.role;
+-
+-  const navItems =
+-    role === 'institution'
+-      ? [
+-          { to: '/', label: 'My Applications', icon: FolderOpen },
+-          { to: '/notices', label: 'Clarification Requests', icon: Bell },
+-          { to: '/deadlines', label: 'Deadlines & Expiry', icon: CalendarClock },
+-          { to: '/compliance', label: 'Compliance Checklist', icon: ShieldCheck },
+-        ]
+-      : [
+-          { to: '/', label: 'Dashboard', icon: LayoutDashboard },
+-          { to: '/applications', label: 'Triage Queue', icon: FileCheck2 },
+-          { to: '/deadlines', label: 'Deadlines & EVC', icon: CalendarClock },
+-          { to: '/compliance', label: role === 'admin' ? 'Rules Engine' : 'Norms & Rules', icon: ShieldCheck },
+-          { to: '/infrastructure', label: 'Infra CV Studio', icon: Camera },
+-          { to: '/audit', label: 'Audit Ledger', icon: History },
+-          ...(role === 'admin' ? [{ to: '/admin', label: 'Administration', icon: Settings }] : []),
+-          ...(role === 'admin' ? [{ to: '/workflow', label: 'Workflow Config', icon: GitBranch }] : []),
+-        ];
+-
+-  return (
+-    <aside className={`fixed inset-y-0 left-0 z-50 flex w-[min(18rem,88vw)] shrink-0 flex-col justify-between border-r border-t-4 border-t-[#e68a21] border-slate-200 bg-white shadow-sm transition-transform md:static md:z-30 md:w-64 md:translate-x-0 ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+-      <div>
+-        <div className="p-4 md:p-6 border-b border-slate-100 flex items-center space-x-3">
+-          <div className="w-10 h-10 rounded-lg bg-[#10395f] flex items-center justify-center shadow-sm">
+-            <Cpu className="w-6 h-6 text-white" />
+-          </div>
+-          <div>
+-            <h1 className="font-bold text-slate-900 text-base tracking-tight flex items-center gap-1.5">
+-              Validex <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 font-mono font-semibold">SIH26262</span>
+-            </h1>
+-            <p className="text-xs text-slate-500 font-medium">{role === 'institution' ? 'Institution Portal' : role === 'admin' ? 'Platform Administration' : role === 'supervisor' ? 'Supervisor Workspace' : role === 'approver' ? 'Approval Workspace' : 'Review Workspace'} · Independent prototype</p>
+-          </div>
+-          <button type="button" aria-label="Close navigation menu" onClick={onNavigate} className="ml-auto rounded-lg p-2 text-slate-500 hover:bg-slate-100 md:hidden"><X className="h-5 w-5" /></button>
+-        </div>
+-
+-        {user?.institution_name && (
+-          <div className="mx-4 mt-4 p-2.5 rounded-lg bg-slate-50 border border-slate-200 flex items-center gap-2">
+-            <Building2 className="w-4 h-4 text-indigo-600 shrink-0" />
+-            <p className="text-xs text-slate-700 truncate font-medium">{user.institution_name}</p>
+-          </div>
+-        )}
+-
+-        <nav className="p-4 space-y-1 mt-1" aria-label="Main">
+-          {navItems.map((item) => {
+-            const Icon = item.icon;
+-            return (
+-              <NavLink
+-                key={item.to}
+-                to={item.to}
+-                end={item.to === '/'}
+-                onClick={onNavigate}
+-                className={({ isActive }) =>
+-                  `flex items-center space-x-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all ${
+-                    isActive ? 'bg-[#155a8a] text-white shadow-sm font-semibold' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+-                  }`
+-                }
+-              >
+-                <Icon className="w-4 h-4 shrink-0" />
+-                <span>{item.label}</span>
+-              </NavLink>
+-            );
+-          })}
+-        </nav>
+-      </div>
+-
+-      <div className="p-4 border-t border-slate-100">
+-        <div className="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-200">
+-          <div className="flex items-center space-x-2.5 truncate">
+-            <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center justify-center shrink-0">
+-              {user?.full_name ? user.full_name[0] : 'U'}
+-            </div>
+-            <div className="truncate">
+-              <p className="text-xs font-semibold text-slate-800 truncate">{user?.full_name}</p>
+-              <p className="text-[10px] uppercase font-mono tracking-wider text-indigo-600 font-bold">{user?.role}</p>
+-            </div>
+-          </div>
+-          <button onClick={logout} title="Log out" aria-label="Log out" className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer">
+-            <LogOut className="w-4 h-4" />
+-          </button>
+-        </div>
+-      </div>
+-    </aside>
+-  );
+-};
++import React from 'react';
++import { NavLink } from 'react-router-dom';
++import { LayoutDashboard, FileCheck2, ShieldCheck, Camera, History, LogOut, Building2, Shield, Settings, Bell, FolderOpen, CalendarClock, GitBranch, Route, BellRing, X } from 'lucide-react';
++import { useAuth } from '../../context/AuthContext';
++
++type Item = { to: string; label: string; icon: React.ElementType };
++
++/** Sidebar following the Tracenza Stitch design: dark navy rail, saffron accent line, grouped navigation. */
++export const Sidebar: React.FC<{ mobileOpen?: boolean; onNavigate?: () => void }> = ({ mobileOpen = false, onNavigate }) => {
++  const { user, logout } = useAuth();
++  const role = user?.role;
++
++  const groups: { title: string; items: Item[] }[] =
++    role === 'institution'
++      ? [
++          { title: 'My filing', items: [
++            { to: '/', label: 'My Applications', icon: FolderOpen },
++            { to: '/pipeline', label: 'Case Tracker', icon: Route },
++            { to: '/deadlines', label: 'Deadlines & Expiry', icon: CalendarClock },
++          ] },
++          { title: 'Messages', items: [
++            { to: '/alerts', label: 'Alerts', icon: BellRing },
++            { to: '/notices', label: 'Clarification Requests', icon: Bell },
++            { to: '/compliance', label: 'Compliance Checklist', icon: ShieldCheck },
++          ] },
++        ]
++      : [
++          { title: 'Casework oversight', items: [
++            { to: '/', label: 'Dashboard', icon: LayoutDashboard },
++            { to: '/applications', label: 'Triage Queue', icon: FileCheck2 },
++            { to: '/pipeline', label: 'Pipeline & Radar', icon: Route },
++            { to: '/deadlines', label: 'Deadlines & EVC', icon: CalendarClock },
++            { to: '/alerts', label: 'Alerts & Escalations', icon: BellRing },
++          ] },
++          { title: 'Governance & assurance', items: [
++            { to: '/audit', label: 'Audit Ledger', icon: History },
++            { to: '/compliance', label: role === 'admin' ? 'Rules Engine' : 'Norms & Rules', icon: ShieldCheck },
++            { to: '/infrastructure', label: 'Infra CV Studio', icon: Camera },
++          ] },
++          ...(role === 'admin' ? [{ title: 'Administration', items: [
++            { to: '/admin', label: 'Users & Retention', icon: Settings },
++            { to: '/workflow', label: 'Workflow Config', icon: GitBranch },
++          ] }] : []),
++        ];
++
++  const subtitle = role === 'institution' ? 'Institution portal' : role === 'admin' ? 'Platform administration' : role === 'supervisor' ? 'Supervisor workspace' : role === 'approver' ? 'Approving officer' : 'Scrutiny workspace';
++
++  return (
++    <aside className={`fixed inset-y-0 left-0 z-50 flex w-[min(15.5rem,88vw)] shrink-0 flex-col justify-between bg-primary-container text-white shadow-lg transition-transform md:static md:z-30 md:w-[248px] md:translate-x-0 ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
++      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
++        <div className="h-[3px] w-full shrink-0 bg-tertiary-accent" aria-hidden="true" />
++        <div className="flex items-center gap-2.5 border-b border-white/10 px-4 pb-3 pt-4">
++          <Shield className="h-6 w-6 text-secondary-container" />
++          <div className="min-w-0">
++            <h1 className="flex items-center gap-1.5 text-base font-bold tracking-tight">Tracenza <span className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase text-secondary-fixed-dim">SIH26262</span></h1>
++            <p className="text-[11px] text-on-primary-container">{subtitle}</p>
++          </div>
++          <button type="button" aria-label="Close navigation menu" onClick={onNavigate} className="ml-auto rounded-lg p-2 text-primary-fixed-dim hover:bg-white/10 md:hidden"><X className="h-5 w-5" /></button>
++        </div>
++
++        {user?.institution_name && (
++          <div className="mx-3 mt-3 flex items-center gap-2 rounded border border-white/10 bg-white/5 px-2.5 py-2">
++            <Building2 className="h-4 w-4 shrink-0 text-secondary-container" />
++            <p className="truncate text-xs font-medium text-white/90">{user.institution_name}</p>
++          </div>
++        )}
++
++        <nav className="space-y-4 p-3" aria-label="Main">
++          {groups.map((g) => (
++            <div key={g.title}>
++              <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-wider text-on-primary-container">{g.title}</p>
++              <div className="space-y-0.5">
++                {g.items.map((item) => {
++                  const Icon = item.icon;
++                  return (
++                    <NavLink key={item.to} to={item.to} end={item.to === '/'} onClick={onNavigate}
++                      className={({ isActive }) => `flex items-center gap-2.5 rounded border-l-[3px] px-2.5 py-1.5 text-sm transition-colors ${isActive ? 'border-secondary-container bg-white/15 font-semibold text-white' : 'border-transparent font-medium text-primary-fixed-dim hover:bg-white/10 hover:text-white'}`}>
++                      <Icon className="h-4 w-4 shrink-0" />
++                      <span>{item.label}</span>
++                    </NavLink>
++                  );
++                })}
++              </div>
++            </div>
++          ))}
++        </nav>
++      </div>
++
++      <div className="border-t border-white/10 p-3">
++        <p className="mb-2 px-1 text-[10px] leading-snug text-on-primary-container">Independent prototype · synthetic data · not an official AICTE system</p>
++        <div className="flex items-center justify-between rounded border border-white/10 bg-white/5 p-2">
++          <div className="flex min-w-0 items-center gap-2.5">
++            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-secondary text-xs font-bold">{user?.full_name ? user.full_name[0] : 'U'}</div>
++            <div className="min-w-0">
++              <p className="truncate text-xs font-semibold">{user?.full_name?.split(' (')[0]}</p>
++              <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-secondary-fixed-dim">{user?.role}</p>
++            </div>
++          </div>
++          <button onClick={logout} title="Log out" aria-label="Log out" className="cursor-pointer rounded p-1.5 text-primary-fixed-dim transition-colors hover:bg-white/10 hover:text-white"><LogOut className="h-4 w-4" /></button>
++        </div>
++      </div>
++    </aside>
++  );
++};
+diff --git a/frontend/src/index.css b/frontend/src/index.css
+index e26b31f..9a5c842 100644
+--- a/frontend/src/index.css
++++ b/frontend/src/index.css
+@@ -1,12 +1,36 @@
+ @import "tailwindcss";
+ 
++/* Tracenza design tokens, taken from the Stitch reference (docs/tracenza-stitch-reference.html) */
++@theme {
++  --color-primary: #00152c;
++  --color-primary-container: #0f2a47;
++  --color-on-primary-container: #7a92b4;
++  --color-primary-fixed-dim: #b0c8ed;
++  --color-secondary: #1d5fa8;
++  --color-secondary-container: #79b0fe;
++  --color-secondary-fixed-dim: #a6c8ff;
++  --color-tertiary-accent: #c78029;
++  --color-surface: #f8f9ff;
++  --color-surface-container-low: #eff4ff;
++  --color-surface-container: #e5eeff;
++  --color-surface-container-high: #e0e9f9;
++  --color-on-surface: #131c28;
++  --color-on-surface-variant: #43474d;
++  --color-outline: #74777e;
++  --color-outline-variant: #c4c6ce;
++  --color-error: #ba1a1a;
++  --color-error-container: #ffdad6;
++  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
++  --font-mono: "JetBrains Mono", ui-monospace, monospace;
++}
++
+ @layer base {
+   :root {
+-    --bg-main: #F3F6F9;
++    --bg-main: #F8F9FF;
+     --bg-card: #FFFFFF;
+     --bg-card-hover: #F1F5F9;
+     --border-subtle: #E2E8F0;
+-    --accent-indigo: #155A8A;
++    --accent-indigo: #1D5FA8;
+     --accent-cyan: #0284C7;
+     --accent-emerald: #059669;
+     --accent-amber: #D97706;
+@@ -19,7 +43,7 @@
+   body {
+     background-color: var(--bg-main);
+     color: var(--text-primary);
+-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
++    font-family: 'IBM Plex Sans', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+     margin: 0;
+     padding: 0;
+     -webkit-font-smoothing: antialiased;
+@@ -73,7 +97,7 @@
+ 
+ /* Government-service portal visual language, while keeping Validex's own identity. */
+ .glass-panel, .glass-card {
+-  border-radius: 0.875rem;
++  border-radius: 0.5rem;
+   box-shadow: 0 1px 2px rgba(16, 45, 70, 0.06), 0 6px 18px -14px rgba(16, 45, 70, 0.18);
+ }
+ 
+diff --git a/frontend/src/main.tsx b/frontend/src/main.tsx
+index 68b2fea..568d635 100644
+--- a/frontend/src/main.tsx
++++ b/frontend/src/main.tsx
+@@ -12,7 +12,7 @@ createRoot(document.getElementById('root')!).render(
+ if ('serviceWorker' in navigator && import.meta.env.PROD) {
+   window.addEventListener('load', () => {
+     navigator.serviceWorker.register('/sw.js').catch((error) => {
+-      console.warn('Validex offline shell could not be installed:', error)
++      console.warn('Tracenza offline shell could not be installed:', error)
+     })
+   })
+ }
+diff --git a/frontend/src/pages/AlertsPage.tsx b/frontend/src/pages/AlertsPage.tsx
+new file mode 100644
+index 0000000..5b2651a
+--- /dev/null
++++ b/frontend/src/pages/AlertsPage.tsx
+@@ -0,0 +1,65 @@
++import React, { useEffect, useState } from 'react';
++import { Link } from 'react-router-dom';
++import { BellRing, CheckCircle2, Lock } from 'lucide-react';
++import { errorMessage, notificationsApi } from '../api/client';
++import type { NotificationItem } from '../types';
++import { useAuth } from '../context/AuthContext';
++import { Button, Card, Empty, Pill, Spinner, fmtDate } from '../components/ui';
++
++export const AlertsPage: React.FC = () => {
++  const { user } = useAuth();
++  const [items, setItems] = useState<NotificationItem[] | null>(null);
++  const [error, setError] = useState('');
++  const load = () => notificationsApi.list().then(setItems).catch((e) => setError(errorMessage(e)));
++  useEffect(() => { load(); }, []);
++
++  const ack = async (n: NotificationItem) => {
++    try {
++      const updated = await notificationsApi.acknowledge(n.id);
++      setItems((prev) => prev?.map((x) => (x.id === n.id ? updated : x)) || null);
++    } catch (e) { setError(errorMessage(e)); }
++  };
++  const open = items?.filter((n) => n.status === 'sent').length ?? 0;
++
++  return (
++    <div className="space-y-5">
++      <div>
++        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-on-surface"><BellRing className="h-6 w-6 text-secondary" />Alerts & escalations</h1>
++        <p className="mt-0.5 text-sm text-slate-500">Reminders, overdue escalations and notices addressed to you. Acknowledgement is recorded in the audit ledger.</p>
++      </div>
++      <div className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-2.5 text-xs text-sky-900">
++        Channels: in-app alerts always; email only if SMTP is configured on the server. SMS and WhatsApp are not implemented in this prototype. Escalation currently triggers after a due date passes; acknowledgement-based pre-deadline escalation is planned.
++      </div>
++      {error && <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</div>}
++      {items === null && !error ? <div className="flex justify-center p-10"><Spinner /></div> : items && items.length === 0 ? <Empty title="No alerts" hint="Alerts appear when reminders or escalations are generated." /> : (
++        <Card title={`${items?.length ?? 0} alert(s)`} actions={<Pill tone={open ? 'amber' : 'emerald'}>{open} unacknowledged</Pill>}>
++          <ul className="divide-y divide-slate-100">
++            {items?.map((n) => {
++              const escalated = n.subject.toLowerCase().startsWith('overdue');
++              return (
++                <li key={n.id} className="flex flex-wrap items-start justify-between gap-3 py-3">
++                  <div className="min-w-0 flex-1">
++                    <div className="flex flex-wrap items-center gap-2">
++                      {n.encrypted_payload && <Lock className="h-3.5 w-3.5 text-secondary" />}
++                      <p className="text-sm font-semibold text-slate-900">{n.subject}</p>
++                      {escalated && <Pill tone="rose">Escalation</Pill>}
++                      <Pill tone={n.status === 'sent' ? 'amber' : 'emerald'}>{n.status}</Pill>
++                      {n.channels.map((c) => <Pill key={c} tone="slate">{c.replace('_', '-')}</Pill>)}
++                    </div>
++                    <p className="mt-1 text-xs text-slate-600">{n.encrypted_payload ? 'Encrypted clarification request. Open it in Clarification Requests to read it.' : n.body}</p>
++                    <p className="mt-1 text-[11px] text-slate-400">{fmtDate(n.created_at)}{n.acknowledged_at ? ` · acknowledged ${fmtDate(n.acknowledged_at)}` : ''}</p>
++                  </div>
++                  <div className="flex items-center gap-2">
++                    {user?.role !== 'institution' && <Link to={`/applications/${n.application_id}`} className="text-xs font-semibold text-secondary">Open case →</Link>}
++                    {n.encrypted_payload && user?.role === 'institution' && <Link to="/notices" className="text-xs font-semibold text-secondary">Read request →</Link>}
++                    {n.status === 'sent' && <Button variant="primary" onClick={() => ack(n)}><CheckCircle2 className="h-3.5 w-3.5" /> Acknowledge</Button>}
++                  </div>
++                </li>
++              );
++            })}
++          </ul>
++        </Card>
++      )}
++    </div>
++  );
++};
+diff --git a/frontend/src/pages/DashboardPage.tsx b/frontend/src/pages/DashboardPage.tsx
+index ec2ef68..3859b3c 100644
+--- a/frontend/src/pages/DashboardPage.tsx
++++ b/frontend/src/pages/DashboardPage.tsx
+@@ -6,6 +6,7 @@ import { dashboardApi } from '../api/client';
+ import type { DashboardStats, RiskDistributionItem, AlertItem, ActivityItem, Metrics } from '../types';
+ import { Button, Card, Empty, SeverityIcon, fmtDate } from '../components/ui';
+ import { useAuth } from '../context/AuthContext';
++import { PendencyPanel } from '../components/PendencyPanel';
+ 
+ const Stat: React.FC<{ label: string; value: React.ReactNode; hint?: string; icon: React.ElementType; tone: string }> = ({ label, value, hint, icon: Icon, tone }) => (
+   <div className="glass-panel rounded-2xl p-4">
+@@ -47,7 +48,7 @@ export const DashboardPage: React.FC = () => {
+     const blob = await dashboardApi.exportReport();
+     const url = URL.createObjectURL(blob);
+     const link = document.createElement('a');
+-    link.href = url; link.download = 'validex-applications-report.csv'; link.click();
++    link.href = url; link.download = 'tracenza-applications-report.csv'; link.click();
+     URL.revokeObjectURL(url);
+   };
+ 
+@@ -78,6 +79,8 @@ export const DashboardPage: React.FC = () => {
+         </div>
+       )}
+ 
++      <PendencyPanel />
++
+       <div className="grid lg:grid-cols-3 gap-6">
+         <Card title="Open alerts" className="lg:col-span-2" actions={<span className="text-[11px] text-slate-500">critical first</span>}>
+           {alerts.length === 0 ? (
+diff --git a/frontend/src/pages/DeadlinesPage.tsx b/frontend/src/pages/DeadlinesPage.tsx
+index 5441304..54b9b2c 100644
+--- a/frontend/src/pages/DeadlinesPage.tsx
++++ b/frontend/src/pages/DeadlinesPage.tsx
+@@ -37,7 +37,7 @@ export const DeadlinesPage: React.FC = () => {
+     try {
+       await deadlinesApi.create({ application_id: appId, kind, title, due_at: new Date(dueAt).toISOString(),
+         description: description || undefined, remind_before_hours: 24, escalate_after_hours: 24 });
+-      setTitle(''); setDescription(''); await refresh(); setMessage('Deadline saved. Reminder and escalation state is stored in Validex.');
++      setTitle(''); setDescription(''); await refresh(); setMessage('Deadline saved. Reminder and escalation state is stored in Tracenza.');
+     } catch (e) { setMessage(errorMessage(e)); } finally { setBusy(false); }
+   };
+ 
+diff --git a/frontend/src/pages/LoginPage.tsx b/frontend/src/pages/LoginPage.tsx
+index 8ced403..ec31dc3 100644
+--- a/frontend/src/pages/LoginPage.tsx
++++ b/frontend/src/pages/LoginPage.tsx
+@@ -68,8 +68,8 @@ export const LoginPage: React.FC = () => {
+           <div className="flex items-center gap-3">
+             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/10 ring-1 ring-white/25"><Cpu className="h-5 w-5" /></div>
+             <div>
+-              <h1 className="text-lg font-bold leading-tight tracking-wide">VALIDEX <span className="text-amber-300">·</span> SIH26262</h1>
+-              <p className="text-xs text-blue-100">AICTE application workflow prototype</p>
++              <h1 className="text-lg font-bold leading-tight tracking-wide">TRACENZA <span className="text-amber-300">·</span> SIH26262</h1>
++              <p className="text-xs text-blue-100">Approval workflow, obligations & compliance monitoring</p>
+             </div>
+           </div>
+           <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+@@ -84,7 +84,7 @@ export const LoginPage: React.FC = () => {
+         <section className="p-5 sm:p-8 lg:p-10">
+           <div className="mb-6 border-b border-slate-200 pb-5">
+             <p className="mb-2 text-[11px] font-bold uppercase tracking-[.16em] text-[#a35d13]">01 <span className="mx-1 text-slate-300">/</span> Workspace access</p>
+-            <h2 className="text-2xl font-bold tracking-tight text-[#173b5c]">Sign in to Validex</h2>
++            <h2 className="text-2xl font-bold tracking-tight text-[#173b5c]">Sign in to Tracenza</h2>
+             <p className="mt-1.5 text-sm leading-6 text-slate-600">Use your institution or officer account to continue to the approval workspace.</p>
+           </div>
+ 
+@@ -142,7 +142,7 @@ export const LoginPage: React.FC = () => {
+         </aside>
+         </div>
+         <footer className="border-t border-slate-200 bg-white px-5 py-3 text-center text-[10px] leading-5 text-slate-500 sm:px-8 sm:text-left">
+-          Validex is an independent SIH26262 portal model and is not an official AICTE service. Evaluation profiles use synthetic records. On iPhone or iPad, use Share → Add to Home Screen.
++          Tracenza is an independent SIH26262 prototype built on the Validex validation platform and is not an official AICTE service. Evaluation profiles use synthetic records. On iPhone or iPad, use Share → Add to Home Screen.
+         </footer>
+       </div>
+     </main>
+diff --git a/frontend/src/pages/PipelinePage.tsx b/frontend/src/pages/PipelinePage.tsx
+new file mode 100644
+index 0000000..9be1e45
+--- /dev/null
++++ b/frontend/src/pages/PipelinePage.tsx
+@@ -0,0 +1,94 @@
++import React, { useEffect, useState } from 'react';
++import { Check, Radar, Route } from 'lucide-react';
++import { errorMessage, portalApi, tracenzaApi } from '../api/client';
++import type { PipelineView, PortalApplication, RadarView } from '../types';
++import { useAuth } from '../context/AuthContext';
++import { Card, Empty, Pill, Spinner, fmtDate } from '../components/ui';
++import { DependencyRadar } from '../components/DependencyRadar';
++
++export const PipelinePage: React.FC = () => {
++  const { user } = useAuth();
++  const institution = user?.role === 'institution';
++  const [apps, setApps] = useState<PortalApplication[] | null>(null);
++  const [appId, setAppId] = useState('');
++  const [pipe, setPipe] = useState<PipelineView | null>(null);
++  const [radar, setRadar] = useState<RadarView | null>(null);
++  const [error, setError] = useState('');
++  const [loading, setLoading] = useState(false);
++
++  useEffect(() => {
++    portalApi.list().then((list) => { setApps(list); setAppId((prev) => prev || list[0]?.id || ''); }).catch((e) => setError(errorMessage(e)));
++  }, []);
++
++  useEffect(() => {
++    if (!appId) return;
++    let live = true;
++    setLoading(true); setError('');
++    Promise.all([tracenzaApi.pipeline(appId), institution ? Promise.resolve(null) : tracenzaApi.radar(appId)])
++      .then(([p, r]) => { if (live) { setPipe(p); setRadar(r); } })
++      .catch((e) => { if (live) setError(errorMessage(e)); })
++      .finally(() => { if (live) setLoading(false); });
++    return () => { live = false; };
++  }, [appId, institution]);
++
++  return (
++    <div className="space-y-5">
++      <div className="flex flex-wrap items-start justify-between gap-3">
++        <div>
++          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-on-surface"><Route className="h-6 w-6 text-secondary" />{institution ? 'Case tracker' : 'Pipeline & Dependency Radar'}</h1>
++          <p className="mt-0.5 text-sm text-slate-500">{institution ? 'Where your application is and what is pending.' : 'Stage progression and what is blocking each case. Final decisions stay with the approving officer.'}</p>
++        </div>
++        {apps && apps.length > 0 && (
++          <select aria-label="Select application" value={appId} onChange={(e) => setAppId(e.target.value)} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
++            {apps.map((a) => <option key={a.id} value={a.id}>{a.application_number} · {a.institution_name}</option>)}
++          </select>
++        )}
++      </div>
++      {error && <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</div>}
++      {apps === null && !error && <div className="flex justify-center p-10"><Spinner /></div>}
++      {apps !== null && apps.length === 0 && <Empty title="No applications yet" />}
++      {loading && <div className="flex justify-center p-6"><Spinner /></div>}
++
++      {pipe && !loading && (
++        <>
++          <Card title={<span>{pipe.application_number} <span className="font-normal text-slate-500">· {pipe.institution_name}</span></span>}
++            actions={<div className="flex gap-2">{pipe.returned_for_clarification && <Pill tone="amber">Returned for clarification</Pill>}{pipe.rejected && <Pill tone="rose">Rejected</Pill>}<Pill tone="indigo">{pipe.status.replace('_', ' ')}</Pill></div>}>
++            <ol className="grid gap-3 sm:grid-cols-5">
++              {pipe.stages.map((s, i) => (
++                <li key={s.key} className={`rounded-lg border p-3 ${s.state === 'current' ? 'border-secondary bg-surface-container-low' : s.state === 'done' ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-white'}`}>
++                  <div className="flex items-center gap-2">
++                    <span className={`flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold ${s.state === 'done' ? 'bg-emerald-600 text-white' : s.state === 'current' ? 'bg-secondary text-white' : 'bg-slate-200 text-slate-600'}`}>
++                      {s.state === 'done' ? <Check className="h-3.5 w-3.5" /> : i + 1}
++                    </span>
++                    <p className="text-xs font-semibold text-slate-900">{s.label}</p>
++                  </div>
++                  <p className="mt-2 text-[11px] text-slate-500">Owner: {s.role}</p>
++                  <p className="text-[11px] text-slate-400">{s.entered_at ? fmtDate(s.entered_at) : s.state === 'pending' ? 'Not reached' : '—'}</p>
++                </li>
++              ))}
++            </ol>
++            {pipe.hours_in_current_stage != null && <p className="mt-3 text-xs text-slate-600">In current stage for <span className="font-mono font-semibold">{pipe.hours_in_current_stage < 48 ? `${pipe.hours_in_current_stage} h` : `${Math.round(pipe.hours_in_current_stage / 24)} d`}</span>.{pipe.human_decision_required && ' A human decision is still required; Tracenza never approves or rejects automatically.'}</p>}
++          </Card>
++
++          <Card title="Pending actions">
++            {pipe.pending_actions.length === 0 ? <Empty title="Nothing pending" /> : (
++              <ul className="divide-y divide-slate-100 text-xs">
++                {pipe.pending_actions.map((a, i) => (
++                  <li key={i} className="flex flex-wrap items-center justify-between gap-2 py-2.5"><span className="font-medium text-slate-800">{a.action}</span>
++                    <span className="flex items-center gap-2"><Pill>{a.owner_role}</Pill><span className="font-mono text-[11px] text-slate-500">{a.due_at ? fmtDate(a.due_at) : 'no due date'}</span></span></li>
++                ))}
++              </ul>
++            )}
++          </Card>
++
++          {!institution && radar && (
++            <Card title={<span className="flex items-center gap-2"><Radar className="h-4 w-4 text-secondary" />Dependency Radar</span>}>
++              <DependencyRadar radar={radar} />
++              <p className="mt-2 text-[11px] text-slate-400">{radar.note}</p>
++            </Card>
++          )}
++        </>
++      )}
++    </div>
++  );
++};
+diff --git a/frontend/src/types/index.ts b/frontend/src/types/index.ts
+index 222cecb..0dfe15d 100644
+--- a/frontend/src/types/index.ts
++++ b/frontend/src/types/index.ts
+@@ -476,3 +476,21 @@ export interface GraphView {
+   edges: { from: string; to: string; kind: string; application?: string }[];
+   links: { kind: string; finding: string; evidence: string; cypher?: string; masked?: string; serial?: string }[];
+ }
++
++export interface PipelineStage { key: string; label: string; role: string; state: 'done' | 'current' | 'pending'; entered_at: string | null }
++export interface PipelineView {
++  application_id: string; application_number: string; institution_name: string; status: ApplicationStatus;
++  returned_for_clarification: boolean; rejected: boolean; current_stage: number; stages: PipelineStage[];
++  hours_in_current_stage: number | null; human_decision_required: boolean; note: string;
++  pending_actions: { owner_role: string; action: string; due_at: string | null }[];
++}
++export interface PendencyOverview {
++  stages: { key: string; label: string; count: number; avg_age_hours: number | null }[];
++  ageing: { under_3_days: number; '3_to_7_days': number; '7_to_14_days': number; over_14_days: number };
++  bottleneck_stage: string | null; workload: { officer: string; open_applications: number }[];
++  deadlines: { open: number; overdue: number; due_within_7_days: number;
++    next: { id: string; title: string; kind: string; application_id: string; application_number: string | null; due_at: string; overdue: boolean; escalation_level: number }[] };
++  unacknowledged_alerts: number; open_applications: number; note: string; ageing_note: string;
++}
++export interface RadarNode { id: string; kind: string; label: string; sub: string; severity: 'info' | 'low' | 'medium' | 'high'; age_hours: number | null; owner_role?: string }
++export interface RadarView { application_id: string; nodes: RadarNode[]; edges: { from: string; to: string; label: string }[]; blocker_count: number; note: string }
+diff --git a/frontend/vercel.json b/frontend/vercel.json
+index 2ac7d95..0d199b2 100644
+--- a/frontend/vercel.json
++++ b/frontend/vercel.json
+@@ -1,12 +1,5 @@
+-{
+-  "rewrites": [
+-    {
+-      "source": "/api/:path*",
+-      "destination": "https://validex-appar-reconx-api.onrender.com/api/:path*"
+-    },
+-    {
+-      "source": "/(.*)",
+-      "destination": "/index.html"
+-    }
+-  ]
+-}
++{
++  "rewrites": [
++    { "source": "/(.*)", "destination": "/index.html" }
++  ]
++}
+diff --git a/render.yaml b/render.yaml
+index 9e8a998..8651613 100644
+--- a/render.yaml
++++ b/render.yaml
+@@ -2,15 +2,19 @@
+ # authorized authority providers, and the matching frontend origin before public operation.
+ services:
+   - type: web
+-    name: validex-appar-reconx-api
++    name: tracenza-api
+     runtime: docker
+     dockerfilePath: ./backend/Dockerfile
+     dockerContext: ./backend
+     plan: free
+     region: singapore
+     envVars:
++      # "demo" seeds the synthetic demo accounts (public default passwords!). Use "production" for real
++      # use: no demo accounts, first admin comes from BOOTSTRAP_ADMIN_EMAIL / BOOTSTRAP_ADMIN_PASSWORD.
+       - key: ENVIRONMENT
+-        value: production
++        value: demo
++      - key: FRONTEND_ORIGINS
++        sync: false   # e.g. https://tracenza.vercel.app (your Vercel URL, no trailing slash)
+       - key: SECRET_KEY
+         generateValue: true
+       - key: USE_MINIO
+@@ -23,12 +27,12 @@ services:
+         value: Portal Administrator
+       - key: DATABASE_URL
+         fromDatabase:
+-          name: validex-appar-reconx-db
++          name: tracenza-db
+           property: connectionString
+ 
+ databases:
+-  - name: validex-appar-reconx-db
+-    databaseName: aicte_validation
+-    user: aicte
++  - name: tracenza-db
++    databaseName: tracenza
++    user: tracenza
+     plan: free
+     region: singapore
+diff --git a/scripts/seed_tracenza_demo.py b/scripts/seed_tracenza_demo.py
+new file mode 100644
+index 0000000..a5e1fb0
+--- /dev/null
++++ b/scripts/seed_tracenza_demo.py
+@@ -0,0 +1,62 @@
++"""Add clearly-labelled DEMO obligations to existing applications (non-destructive, idempotent).
++
++    cd backend
++    python ../scripts/generate_demo_data.py        # once, if there are no applications yet
++    python ../scripts/seed_tracenza_demo.py
++
++Creates open deadlines (upcoming, due soon and overdue) and a few alert records so the pipeline,
++pendency and escalation screens have data. Everything is prefixed "[DEMO]". Nothing is deleted or reset.
++"""
++
++import os
++import sys
++from datetime import datetime, timedelta, timezone
++
++sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
++
++from app.core.database import SessionLocal, sync_schema  # noqa: E402
++from app.models.application import Application, ApplicationStatus  # noqa: E402
++from app.models.deadline import Deadline, DeadlineKind  # noqa: E402
++from app.models.user import User, UserRole  # noqa: E402
++from app.services.audit_service import audit_service  # noqa: E402
++from app.services.deadline_service import process_due_deadlines  # noqa: E402
++
++PLAN = [  # (kind, title, due offset in hours, remind_before, escalate_after)
++    (DeadlineKind.EVC, "[DEMO] Expert Visit Committee visit", 72, 24, 24),
++    (DeadlineKind.UNDERTAKING, "[DEMO] Submit faculty recruitment undertaking", 30, 24, 12),
++    (DeadlineKind.LEASE_EXPIRY, "[DEMO] Lease agreement expiry", 24 * 20, 72, 24),
++    (DeadlineKind.DOCUMENT_EXPIRY, "[DEMO] Fire safety certificate renewal", -60, 24, 24),
++    (DeadlineKind.WORKFLOW, "[DEMO] Scrutiny review due", -20, 12, 12),
++]
++
++
++def main() -> None:
++    sync_schema()
++    db = SessionLocal()
++    try:
++        apps = db.query(Application).filter(Application.status != ApplicationStatus.DRAFT).order_by(Application.submitted_at).all()
++        officer = db.query(User).filter(User.role == UserRole.SCRUTINY).first() or db.query(User).filter(User.role == UserRole.ADMIN).first()
++        if not apps or not officer:
++            print("No submitted applications or officer account found. Run generate_demo_data.py first.")
++            return
++        now, created = datetime.now(timezone.utc), 0
++        for i, app in enumerate(apps):
++            # Each application gets 2 different demo obligations so the data stays varied but consistent
++            for kind, title, hours, remind, esc in [PLAN[(i * 2) % len(PLAN)], PLAN[(i * 2 + 1) % len(PLAN)]]:
++                exists = db.query(Deadline).filter(Deadline.application_id == app.id, Deadline.title == title).first()
++                if exists:
++                    continue
++                db.add(Deadline(application_id=app.id, created_by=officer.id, kind=kind, title=title,
++                                description="Synthetic demonstration obligation",
++                                due_at=now + timedelta(hours=hours), remind_before_hours=remind, escalate_after_hours=esc))
++                created += 1
++        db.commit()
++        if created:
++            audit_service.log_event(db=db, action="DEMO_OBLIGATIONS_SEEDED", user_id=officer.id, details={"count": created, "synthetic": True})
++        print("Demo obligations created:", created, "| sweep:", process_due_deadlines(db))
++    finally:
++        db.close()
++
++
++if __name__ == "__main__":
++    main()

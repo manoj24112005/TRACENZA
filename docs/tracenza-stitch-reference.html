@@ -1,0 +1,1876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>Validex | AICTE Institutional Audit & Governance Platform</title>
+  
+  <!-- Google Fonts & Material Symbols -->
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin=""/>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "on-surface-variant": "#43474d",
+            "tertiary-fixed-dim": "#ffb86b",
+            "secondary-fixed-dim": "#a6c8ff",
+            "outline": "#74777e",
+            "primary-fixed-dim": "#b0c8ed",
+            "secondary": "#1d5fa8",
+            "on-error": "#ffffff",
+            "surface-container-low": "#eff4ff",
+            "secondary-container": "#79b0fe",
+            "surface-dim": "#d1daeb",
+            "inverse-on-surface": "#eaf1ff",
+            "on-secondary-fixed-variant": "#004787",
+            "on-tertiary-container": "#c78029",
+            "surface-container-highest": "#dae3f4",
+            "secondary-fixed": "#d5e3ff",
+            "on-primary-fixed-variant": "#304867",
+            "on-primary-container": "#7a92b4",
+            "on-background": "#131c28",
+            "surface-tint": "#486080",
+            "primary": "#00152c",
+            "inverse-surface": "#28313d",
+            "on-tertiary-fixed": "#2c1700",
+            "background": "#f8f9ff",
+            "tertiary-fixed": "#ffdcbc",
+            "outline-variant": "#c4c6ce",
+            "primary-container": "#0f2a47",
+            "on-primary-fixed": "#001c38",
+            "tertiary-container": "#3e2200",
+            "on-primary": "#ffffff",
+            "surface-container": "#e5eeff",
+            "inverse-primary": "#b0c8ed",
+            "on-secondary-container": "#00427d",
+            "surface-container-high": "#e0e9f9",
+            "tertiary": "#221000",
+            "error-container": "#ffdad6",
+            "primary-fixed": "#d3e4ff",
+            "on-secondary": "#ffffff",
+            "on-surface": "#131c28",
+            "surface": "#f8f9ff",
+            "on-tertiary": "#ffffff",
+            "on-tertiary-fixed-variant": "#683d00",
+            "surface-bright": "#f8f9ff",
+            "surface-variant": "#dae3f4",
+            "on-secondary-fixed": "#001c3b",
+            "on-error-container": "#93000a",
+            "error": "#ba1a1a"
+          },
+          borderRadius: {
+            "DEFAULT": "0.25rem",
+            "sm": "0.125rem",
+            "md": "0.375rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          spacing: {
+            "space-2xs": "0.125rem",
+            "space-xs": "0.25rem",
+            "space-sm": "0.5rem",
+            "space-md": "0.75rem",
+            "space-lg": "1rem",
+            "space-xl": "1.5rem",
+            "space-2xl": "2rem",
+            "gutter": "1rem",
+            "margin": "1.5rem"
+          },
+          fontFamily: {
+            sans: ["IBM Plex Sans", "sans-serif"],
+            mono: ["JetBrains Mono", "monospace"],
+            "body-md": ["IBM Plex Sans", "sans-serif"],
+            "body-md-medium": ["IBM Plex Sans", "sans-serif"],
+            "code-sm": ["JetBrains Mono", "monospace"],
+            "code-md": ["JetBrains Mono", "monospace"],
+            "headline-lg": ["IBM Plex Sans", "sans-serif"],
+            "headline-md": ["IBM Plex Sans", "sans-serif"],
+            "headline-sm": ["IBM Plex Sans", "sans-serif"],
+            "label-sm": ["IBM Plex Sans", "sans-serif"],
+            "label-md": ["IBM Plex Sans", "sans-serif"]
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    body { font-family: 'IBM Plex Sans', sans-serif; }
+    code, .font-mono { font-family: 'JetBrains Mono', monospace; }
+    /* Subtle custom scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f4f9; }
+    ::-webkit-scrollbar-thumb { background: #c4c6ce; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #74777e; }
+  </style>
+</head>
+<body class="bg-background font-body-md text-on-surface antialiased min-h-screen">
+
+  <!-- ======================== TOAST NOTIFICATIONS CONTAINER ======================== -->
+  <div id="toast-container" class="fixed top-20 right-6 z-50 flex flex-col gap-2 pointer-events-auto"></div>
+
+  <!-- ======================== AUTHORITATIVE SIDEBAR ======================== -->
+  <aside class="fixed left-0 top-0 h-screen w-[248px] bg-primary-container z-50 flex flex-col justify-between border-r border-outline/20 select-none">
+    <div class="flex flex-col flex-1 overflow-y-auto">
+      <!-- Statutory Saffron Accent Line -->
+      <div class="h-[3px] w-full bg-on-tertiary-container"></div>
+      
+      <!-- Brand & Bureau Identity -->
+      <div class="px-space-lg pt-space-lg pb-space-md border-b border-white/10">
+        <div class="flex items-center gap-space-sm cursor-pointer" onclick="window.ValidexApp.navigateTo('dashboard')">
+          <span class="material-symbols-outlined text-secondary-container text-[22px]">verified_user</span>
+          <span class="font-headline-sm text-headline-sm text-on-primary font-bold tracking-tight">Validex</span>
+          <span class="px-1.5 py-0.5 rounded bg-white/10 font-code-sm text-code-sm text-secondary-fixed-dim uppercase">AICTE</span>
+        </div>
+        <p class="font-label-sm text-label-sm text-on-primary-container mt-space-2xs tracking-normal">Statutory Regulatory & Scrutiny Portal</p>
+      </div>
+
+      <!-- Portal Context Switcher -->
+      <div class="px-space-md py-space-sm">
+        <label class="font-label-sm text-label-sm uppercase text-on-primary-container block mb-space-2xs font-semibold">Portal Context</label>
+        <div class="flex items-center justify-between px-space-sm py-1.5 rounded bg-white/5 border border-white/10 text-on-primary hover:bg-white/10 cursor-pointer transition-colors" onclick="window.ValidexApp.navigateTo('roles-and-access')">
+          <div class="flex items-center gap-space-xs">
+            <span class="material-symbols-outlined text-[16px] text-secondary-container">gavel</span>
+            <span class="font-body-md-medium text-body-md-medium font-semibold">Scrutiny Cell</span>
+          </div>
+          <span class="material-symbols-outlined text-[16px] text-on-primary-container">unfold_more</span>
+        </div>
+      </div>
+
+      <!-- Navigation Links -->
+      <nav class="flex flex-col gap-space-2xs px-space-xs py-space-xs">
+        <div class="px-space-md pt-space-sm pb-space-2xs">
+          <span class="font-label-sm text-label-sm text-on-primary-container tracking-wider uppercase font-semibold">Casework Oversight</span>
+        </div>
+        <a class="flex items-center gap-space-sm px-space-md py-1.5 rounded transition-colors bg-white/15 text-on-primary font-semibold border-l-[3px] border-secondary pl-[13px]" data-path="dashboard" href="#dashboard" onclick="window.ValidexApp.navigateTo('dashboard'); return false;">
+          <span class="material-symbols-outlined text-[18px]">grid_view</span>
+          <span>Dashboard</span>
+        </a>
+        <a class="flex items-center gap-space-sm px-space-md py-1.5 rounded font-body-md-medium text-body-md-medium text-primary-fixed-dim hover:bg-white/10 hover:text-on-primary transition-colors" data-path="applications" href="#applications" onclick="window.ValidexApp.navigateTo('applications'); return false;">
+          <span class="material-symbols-outlined text-[18px]">description</span>
+          <span>Applications</span>
+        </a>
+        <a class="flex items-center gap-space-sm px-space-md py-1.5 rounded font-body-md-medium text-body-md-medium text-primary-fixed-dim hover:bg-white/10 hover:text-on-primary transition-colors" data-path="reviewer-workspace" href="#workspace" onclick="window.ValidexApp.navigateTo('workspace'); return false;">
+          <span class="material-symbols-outlined text-[18px]">fact_check</span>
+          <span>Reviewer Workspace</span>
+        </a>
+        <a class="flex items-center justify-between px-space-md py-1.5 rounded font-body-md-medium text-body-md-medium text-primary-fixed-dim hover:bg-white/10 hover:text-on-primary transition-colors" data-path="alerts-and-notifications" href="#alerts" onclick="window.ValidexApp.navigateTo('alerts-and-notifications'); return false;">
+          <div class="flex items-center gap-space-sm">
+            <span class="material-symbols-outlined text-[18px]">notifications_active</span>
+            <span>Alerts & Notifications</span>
+          </div>
+          <span class="px-1.5 py-0.2 rounded-full bg-error text-on-error font-code-sm text-code-sm font-bold">19</span>
+        </a>
+
+        <div class="px-space-md pt-space-md pb-space-2xs">
+          <span class="font-label-sm text-label-sm text-on-primary-container tracking-wider uppercase font-semibold">Governance & Assurance</span>
+        </div>
+        <a class="flex items-center gap-space-sm px-space-md py-1.5 rounded font-body-md-medium text-body-md-medium text-primary-fixed-dim hover:bg-white/10 hover:text-on-primary transition-colors" data-path="audit-trail" href="#audit" onclick="window.ValidexApp.navigateTo('audit-trail'); return false;">
+          <span class="material-symbols-outlined text-[18px]">history_edu</span>
+          <span>Audit Trail</span>
+        </a>
+        <a class="flex items-center gap-space-sm px-space-md py-1.5 rounded font-body-md-medium text-body-md-medium text-primary-fixed-dim hover:bg-white/10 hover:text-on-primary transition-colors" data-path="evaluation-metrics" href="#metrics" onclick="window.ValidexApp.navigateTo('evaluation-metrics'); return false;">
+          <span class="material-symbols-outlined text-[18px]">query_stats</span>
+          <span>Evaluation Metrics</span>
+        </a>
+
+        <div class="px-space-md pt-space-md pb-space-2xs">
+          <span class="font-label-sm text-label-sm text-on-primary-container tracking-wider uppercase font-semibold">Statutory Reference</span>
+        </div>
+        <a class="flex items-center gap-space-sm px-space-md py-1.5 rounded font-body-md-medium text-body-md-medium text-primary-fixed-dim hover:bg-white/10 hover:text-on-primary transition-colors" data-path="rules-and-checklists" href="#rules" onclick="window.ValidexApp.navigateTo('rules-and-checklists'); return false;">
+          <span class="material-symbols-outlined text-[18px]">rule</span>
+          <span>Rules & Checklists</span>
+        </a>
+        <a class="flex items-center gap-space-sm px-space-md py-1.5 rounded font-body-md-medium text-body-md-medium text-primary-fixed-dim hover:bg-white/10 hover:text-on-primary transition-colors" data-path="roles-and-access" href="#roles" onclick="window.ValidexApp.navigateTo('roles-and-access'); return false;">
+          <span class="material-symbols-outlined text-[18px]">admin_panel_settings</span>
+          <span>Roles & Access</span>
+        </a>
+
+        <div class="px-space-md pt-space-md pb-space-2xs">
+          <span class="font-label-sm text-label-sm text-on-primary-container tracking-wider uppercase font-semibold">Institutional Portal View</span>
+        </div>
+        <a class="flex items-center gap-space-sm px-space-md py-1.5 rounded font-body-md-medium text-body-md-medium text-primary-fixed-dim hover:bg-white/10 hover:text-on-primary transition-colors" data-path="my-applications" href="#college-portal" onclick="window.ValidexApp.navigateTo('college-portal'); return false;">
+          <span class="material-symbols-outlined text-[18px]">folder_shared</span>
+          <span>College Filing Portal</span>
+        </a>
+      </nav>
+    </div>
+
+    <!-- Sidebar Footer -->
+    <div class="p-space-md border-t border-white/10 bg-primary/40">
+      <div class="flex items-start gap-space-xs p-space-sm rounded bg-white/5 border border-white/10 text-on-primary-container">
+        <span class="material-symbols-outlined text-[16px] text-secondary-container mt-0.5">verified</span>
+        <p class="font-label-sm text-label-sm text-primary-fixed-dim leading-snug">
+          <span class="font-bold text-white">Rule 4.2(b):</span> AI output is evidentiary advisory. Statutory officers adjudicate.
+        </p>
+      </div>
+      <div class="flex items-center justify-between mt-space-sm pt-space-xs font-code-sm text-code-sm text-on-primary-container">
+        <span class="tracking-wider">AICTE SRS-AS</span>
+        <span>v2.4.1 Production</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ======================== MAIN APPLICATION SHELL ======================== -->
+  <div class="pl-[248px]">
+
+    <!-- FIXED AUTHORITATIVE TOP HEADER -->
+    <header class="fixed top-0 left-[248px] right-0 z-40 bg-surface-container-lowest border-b border-outline-variant shadow-sm">
+      <div class="h-14 px-space-xl flex items-center justify-between gap-space-lg">
+        <!-- Ministry & Bureau Crest -->
+        <div class="flex items-center gap-space-sm min-w-0 font-body-sm text-body-sm text-on-surface-variant">
+          <span class="font-body-md-medium text-body-md-medium text-primary font-bold flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-[18px] text-secondary">account_balance</span>
+            AICTE Regulatory Bureau
+          </span>
+          <span class="text-outline-variant">/</span>
+          <span class="truncate font-body-sm text-body-sm text-on-surface-variant font-medium">Western & Southern Regional Scrutiny Board</span>
+        </div>
+
+        <!-- Global Search Input -->
+        <div class="flex-1 max-w-xl mx-auto">
+          <div class="relative flex items-center w-full">
+            <span class="material-symbols-outlined absolute left-space-sm text-[18px] text-outline pointer-events-none">search</span>
+            <input 
+              class="w-full h-8 pl-9 pr-space-md bg-surface-container-low border border-outline-variant rounded font-body-md text-body-md text-on-surface placeholder:text-outline focus:bg-surface-container-lowest focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all text-xs" 
+              placeholder="Search applications, institutions, documents, reference numbers..." 
+              type="text"
+              oninput="window.ValidexApp.onSearchInput(this.value)"
+            />
+          </div>
+        </div>
+
+        <!-- Header Actions: Clock, Locale, Officer Profile -->
+        <div class="flex items-center gap-space-md shrink-0">
+          <!-- Live Clock -->
+          <div class="hidden 2xl:flex items-center gap-1.5 font-code-sm text-code-sm text-outline border-r border-outline-variant pr-space-md">
+            <span class="material-symbols-outlined text-[15px] text-secondary">schedule</span>
+            <span id="live-ist-clock" class="text-primary font-semibold">28 Oct 2026 · 14:15:00 IST</span>
+          </div>
+
+          <!-- Language Selector -->
+          <div id="lang-selector" class="hidden xl:flex items-center border border-outline-variant rounded overflow-hidden bg-surface-container-low">
+            <button class="px-2 py-1 font-label-sm text-label-sm bg-surface-container-high text-on-surface font-semibold" type="button" onclick="window.ValidexApp.switchLang('EN')">EN</button>
+            <button class="px-2 py-1 font-label-sm text-label-sm text-on-surface-variant hover:text-on-surface" type="button" onclick="window.ValidexApp.switchLang('हिन्दी')">हिन्दी</button>
+            <button class="px-2 py-1 font-label-sm text-label-sm text-on-surface-variant hover:text-on-surface" type="button" onclick="window.ValidexApp.switchLang('தமிழ்')">தமிழ்</button>
+          </div>
+
+          <!-- Officer Identity Card -->
+          <div class="flex items-center gap-space-xs pl-space-xs pr-space-sm py-1 rounded bg-surface-container border border-outline-variant cursor-pointer hover:bg-surface-container-high transition-colors" onclick="window.ValidexApp.navigateTo('roles-and-access')">
+            <div class="flex flex-col text-right">
+              <span class="font-label-sm text-label-sm text-primary font-bold leading-tight">Ananya Krishnan</span>
+              <span class="font-code-sm text-code-sm text-secondary font-medium leading-tight">Scrutiny Officer (AK-9921)</span>
+            </div>
+            <span class="material-symbols-outlined text-[16px] text-outline">swap_vert</span>
+          </div>
+
+          <!-- Notification Bell -->
+          <button aria-label="Notifications" class="relative p-1.5 text-on-surface-variant hover:text-primary rounded hover:bg-surface-container transition-colors" type="button" onclick="window.ValidexApp.navigateTo('alerts-and-notifications')">
+            <span class="material-symbols-outlined text-[20px]">notifications</span>
+            <span class="absolute top-1 right-1 w-2 h-2 rounded-full bg-error"></span>
+          </button>
+
+          <!-- User Avatar -->
+          <div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary">
+            <span class="material-symbols-outlined text-[18px]">person</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Statutory Sub-header Strip (Government Gazette Demarcation) -->
+      <div class="h-8 px-space-xl bg-tertiary-fixed border-b border-tertiary-fixed-dim/40 flex items-center justify-between text-on-tertiary-fixed">
+        <div class="flex items-center gap-space-xs font-code-sm text-code-sm font-semibold">
+          <span class="material-symbols-outlined text-[16px] text-on-tertiary-fixed">assured_workload</span>
+          <span class="tracking-wide uppercase">National Institutional Regulatory & Approval System · Active Cycle AY 2026-27</span>
+        </div>
+        <span class="font-label-sm text-label-sm text-on-tertiary-fixed-variant font-medium">Statutory Compliance Under AICTE Regulations 2026</span>
+      </div>
+    </header>
+
+    <!-- MAIN VIEW CONTAINER -->
+    <main class="relative pt-[88px] min-h-screen bg-surface px-space-xl py-space-xl">
+      <div class="max-w-[1360px] mx-auto w-full">
+
+        <!-- ========================================================================= -->
+        <!-- VIEW 1: DASHBOARD                                                         -->
+        <!-- ========================================================================= -->
+        <div id="view-dashboard" class="flex flex-col w-full gap-space-lg">
+          <!-- Top Statutory Safeguard Strip -->
+          <div class="flex items-center justify-between px-space-md py-2.5 rounded bg-surface-container-low shadow-sm border border-outline-variant/30">
+            <div class="flex items-center gap-space-sm min-w-0">
+              <span class="material-symbols-outlined text-secondary text-[20px] shrink-0">gavel</span>
+              <p class="font-body-md text-body-md text-on-surface">
+                <span class="font-body-md-medium text-body-md-medium text-primary font-bold">Statutory Safeguard:</span>
+                AI findings are machine-assisted advisory extractions pursuant to AICTE Approval Process Handbook (APH) Reg. 4.2(b). Human Scrutineer adjudication is legally binding.
+              </p>
+            </div>
+            <div class="hidden sm:flex items-center gap-space-xs shrink-0 pl-space-md">
+              <span class="inline-flex items-center px-2 py-0.5 rounded font-code-sm text-code-sm uppercase bg-surface-container text-secondary font-bold">
+                RULE 4.2 COMPLIANT
+              </span>
+            </div>
+          </div>
+
+          <!-- Screen Header -->
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-space-md pb-space-xs">
+            <div>
+              <div class="flex items-center gap-space-xs">
+                <span class="font-headline-lg text-headline-lg text-primary tracking-tight font-bold">Reviewer Bureau Dashboard</span>
+                <span class="px-2 py-0.5 rounded bg-secondary-fixed text-on-secondary-fixed font-code-sm text-code-sm font-semibold uppercase">
+                  SRO · CHENNAI & PUNE
+                </span>
+              </div>
+              <p class="font-body-md text-body-md text-on-surface-variant mt-0.5">
+                EoA 2026-27 · Statutory filing deadline 15 Nov 2026 <span class="font-body-md-medium text-body-md-medium text-on-tertiary-container font-semibold">(18 days remaining in scrutiny window)</span>
+              </p>
+            </div>
+            <div class="flex items-center gap-space-sm shrink-0">
+              <button class="h-9 px-space-md rounded bg-surface-container-lowest text-secondary font-body-md-medium text-body-md-medium hover:bg-surface-container-low transition-colors shadow-sm flex items-center gap-1.5 border border-outline-variant/40" type="button" onclick="window.ValidexApp.exportGazetteLedger()">
+                <span class="material-symbols-outlined text-[18px]">download</span>
+                <span>Export Gazette Ledger</span>
+              </button>
+              <button class="h-9 px-space-md rounded bg-primary-container text-on-primary font-body-md-medium text-body-md-medium hover:bg-primary transition-colors shadow-md flex items-center gap-2" type="button" onclick="window.ValidexApp.navigateTo('workspace')">
+                <span class="material-symbols-outlined text-[18px] text-secondary-container">fact_check</span>
+                <span>Open Reviewer Workspace</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Six KPI Cards -->
+          <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-space-md">
+            <!-- KPI 1 -->
+            <div class="bg-surface-container-lowest rounded p-space-md flex flex-col justify-between shadow-sm relative overflow-hidden border border-outline-variant/30">
+              <div class="absolute top-0 left-0 right-0 h-1 bg-secondary"></div>
+              <div class="flex items-start justify-between">
+                <span class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant font-semibold">Applications Total</span>
+                <span class="material-symbols-outlined text-outline text-[18px]">folder_copy</span>
+              </div>
+              <div class="mt-space-sm">
+                <div class="font-headline-xl text-headline-xl text-primary font-bold tracking-tight">1,284</div>
+                <p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">AY 2026-27 Cycle</p>
+              </div>
+            </div>
+            <!-- KPI 2 -->
+            <div class="bg-surface-container-lowest rounded p-space-md flex flex-col justify-between shadow-sm relative overflow-hidden border border-outline-variant/30">
+              <div class="absolute top-0 left-0 right-0 h-1 bg-tertiary-fixed-dim"></div>
+              <div class="flex items-start justify-between">
+                <span class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant font-semibold">Awaiting Review</span>
+                <span class="w-2.5 h-2.5 rounded-full bg-on-tertiary-container mt-1"></span>
+              </div>
+              <div class="mt-space-sm">
+                <div class="font-headline-xl text-headline-xl text-on-surface font-bold tracking-tight">214</div>
+                <p class="font-body-sm text-body-sm text-on-tertiary-container font-medium mt-0.5">Needs initial check</p>
+              </div>
+            </div>
+            <!-- KPI 3 -->
+            <div class="bg-surface-container-lowest rounded p-space-md flex flex-col justify-between shadow-sm relative overflow-hidden border border-outline-variant/30">
+              <div class="absolute top-0 left-0 right-0 h-1 bg-secondary-container"></div>
+              <div class="flex items-start justify-between">
+                <span class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant font-semibold">Processing</span>
+                <span class="material-symbols-outlined text-secondary animate-spin text-[18px]">sync</span>
+              </div>
+              <div class="mt-space-sm">
+                <div class="font-headline-xl text-headline-xl text-primary font-bold tracking-tight">37</div>
+                <p class="font-body-sm text-body-sm text-secondary font-medium mt-0.5">Automated checks live</p>
+              </div>
+            </div>
+            <!-- KPI 4 -->
+            <div class="bg-surface-container-lowest rounded p-space-md flex flex-col justify-between shadow-sm relative overflow-hidden border border-outline-variant/30">
+              <div class="absolute top-0 left-0 right-0 h-1 bg-outline-variant"></div>
+              <div class="flex items-start justify-between">
+                <span class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant font-semibold">Unresolved Findings</span>
+                <span class="material-symbols-outlined text-outline text-[18px]">pending_actions</span>
+              </div>
+              <div class="mt-space-sm">
+                <div class="font-headline-xl text-headline-xl text-primary font-bold tracking-tight">482</div>
+                <p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Evidence-linked items</p>
+              </div>
+            </div>
+            <!-- KPI 5 -->
+            <div class="bg-surface-container-lowest rounded p-space-md flex flex-col justify-between shadow-sm relative overflow-hidden border border-outline-variant/30">
+              <div class="absolute top-0 left-0 right-0 h-1 bg-error"></div>
+              <div class="flex items-start justify-between">
+                <span class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant font-semibold">Open Alerts</span>
+                <span class="inline-flex items-center px-1.5 py-0.2 rounded-full bg-error text-on-error font-code-sm text-code-sm font-bold">19</span>
+              </div>
+              <div class="mt-space-sm">
+                <div class="font-headline-xl text-headline-xl text-error font-bold tracking-tight">19</div>
+                <p class="font-body-sm text-body-sm text-error font-medium mt-0.5">High priority: 7</p>
+              </div>
+            </div>
+            <!-- KPI 6 -->
+            <div class="bg-surface-container-lowest rounded p-space-md flex flex-col justify-between shadow-sm relative overflow-hidden border border-outline-variant/30">
+              <div class="absolute top-0 left-0 right-0 h-1 bg-outline"></div>
+              <div class="flex items-start justify-between">
+                <span class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant truncate font-semibold">Pending / Retry</span>
+                <span class="material-symbols-outlined text-outline text-[18px]">cloud_sync</span>
+              </div>
+              <div class="mt-space-sm">
+                <div class="font-headline-xl text-headline-xl text-primary font-bold tracking-tight">63</div>
+                <p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Queued background</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Master Casework Matrix & Verification Barometer -->
+          <div class="grid grid-cols-1 xl:grid-cols-12 gap-space-md items-start">
+            <!-- Scrutiny Docket Table (8 cols) -->
+            <div class="xl:col-span-8 bg-surface-container-lowest rounded shadow-sm flex flex-col overflow-hidden border border-outline-variant/30">
+              <div class="p-space-md bg-surface-container-low flex flex-col sm:flex-row sm:items-center justify-between gap-space-sm">
+                <div class="flex items-center gap-space-sm">
+                  <span class="material-symbols-outlined text-secondary text-[20px]">dataset</span>
+                  <span class="font-headline-sm text-headline-sm text-primary font-bold">Application-wise Scrutiny Docket</span>
+                  <span class="px-2 py-0.5 rounded bg-surface text-on-surface-variant font-code-sm text-code-sm font-semibold">Active Stream</span>
+                </div>
+                <div class="flex items-center gap-space-xs">
+                  <button class="h-7 px-2.5 bg-surface text-on-surface-variant rounded font-label-sm text-label-sm hover:text-primary flex items-center gap-1 border border-outline-variant/40" type="button" onclick="window.ValidexApp.navigateTo('applications')">
+                    <span class="material-symbols-outlined text-[14px]">tune</span>Open Full List
+                  </button>
+                </div>
+              </div>
+              <div class="overflow-x-auto max-h-[460px]">
+                <table class="w-full text-left border-collapse">
+                  <thead class="sticky top-0 z-10 bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider">
+                    <tr>
+                      <th class="py-2.5 px-space-md">App ID</th>
+                      <th class="py-2.5 px-space-md">Institution</th>
+                      <th class="py-2.5 px-space-sm">Status</th>
+                      <th class="py-2.5 px-space-sm text-center">Checklist</th>
+                      <th class="py-2.5 px-space-sm">Signals</th>
+                      <th class="py-2.5 px-space-sm text-center">Reviewer</th>
+                      <th class="py-2.5 px-space-md text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="dashboard-scrunity-tbody" class="text-body-sm font-body-sm text-on-surface divide-y divide-surface-container">
+                    <!-- Populated dynamically by app.js -->
+                  </tbody>
+                </table>
+              </div>
+              <div class="p-space-md bg-surface-container-low flex items-center justify-between border-t border-surface-container">
+                <span class="font-body-sm text-body-sm text-on-surface-variant">Showing active prioritized scrutiny stream</span>
+                <a class="font-body-md-medium text-body-md-medium text-secondary hover:text-primary transition-colors flex items-center gap-1 font-semibold" href="#applications" onclick="window.ValidexApp.navigateTo('applications'); return false;">
+                  <span>View all 1,284 applications</span>
+                  <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+                </a>
+              </div>
+            </div>
+
+            <!-- Verification Outcomes Card (4 cols) -->
+            <div class="xl:col-span-4 bg-surface-container-lowest rounded shadow-sm p-space-md flex flex-col justify-between h-full border border-outline-variant/30">
+              <div>
+                <div class="flex items-center justify-between pb-space-sm">
+                  <div class="flex items-center gap-space-xs">
+                    <span class="material-symbols-outlined text-secondary text-[20px]">donut_small</span>
+                    <span class="font-headline-sm text-headline-sm text-primary font-bold">Verification Outcomes</span>
+                  </div>
+                  <span class="px-2 py-0.5 rounded bg-[#E4F4EB] text-[#146C43] font-code-sm text-code-sm font-semibold uppercase">
+                    3,987 Checks
+                  </span>
+                </div>
+                <p class="font-body-sm text-body-sm text-on-surface-variant mb-space-md">
+                  Aggregate distribution of automated validation checks processed via statutory pipeline.
+                </p>
+                <!-- Stacked Progress Bar -->
+                <div class="w-full h-4 rounded-full overflow-hidden flex bg-surface-container mb-space-md shadow-inner">
+                  <div class="bg-secondary h-full" style="width: 71.4%;" title="Verified (71.4%)"></div>
+                  <div class="bg-error h-full" style="width: 7.8%;" title="Mismatch (7.8%)"></div>
+                  <div class="bg-on-tertiary-container h-full" style="width: 4.7%;" title="Expired (4.7%)"></div>
+                  <div class="bg-secondary-container h-full" style="width: 5.1%;" title="Pending (5.1%)"></div>
+                  <div class="bg-outline h-full" style="width: 2.4%;" title="Unavailable (2.4%)"></div>
+                  <div class="bg-primary-container h-full" style="width: 8.6%;" title="Manual review (8.6%)"></div>
+                </div>
+                <!-- Metric Breakdown List -->
+                <div class="flex flex-col gap-2.5">
+                  <div class="flex items-center justify-between p-2 rounded bg-surface-container-low">
+                    <div class="flex items-center gap-2">
+                      <span class="w-3 h-3 rounded-full bg-secondary shrink-0"></span>
+                      <span class="font-body-md text-body-md text-on-surface">Verified</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <span class="font-code-md text-code-md font-semibold text-primary">2,846</span>
+                      <span class="font-label-sm text-label-sm text-on-surface-variant w-12 text-right">71.4%</span>
+                    </div>
+                  </div>
+                  <div class="flex items-center justify-between p-2 rounded bg-surface-container-low">
+                    <div class="flex items-center gap-2">
+                      <span class="w-3 h-3 rounded-full bg-error shrink-0"></span>
+                      <span class="font-body-md text-body-md text-on-surface">Mismatch detected</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <span class="font-code-md text-code-md font-semibold text-error">312</span>
+                      <span class="font-label-sm text-label-sm text-on-surface-variant w-12 text-right">7.8%</span>
+                    </div>
+                  </div>
+                  <div class="flex items-center justify-between p-2 rounded bg-surface-container-low">
+                    <div class="flex items-center gap-2">
+                      <span class="w-3 h-3 rounded-full bg-on-tertiary-container shrink-0"></span>
+                      <span class="font-body-md text-body-md text-on-surface">Expired</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <span class="font-code-md text-code-md font-semibold text-on-tertiary-container">187</span>
+                      <span class="font-label-sm text-label-sm text-on-surface-variant w-12 text-right">4.7%</span>
+                    </div>
+                  </div>
+                  <div class="flex items-center justify-between p-2 rounded bg-surface-container-low">
+                    <div class="flex items-center gap-2">
+                      <span class="w-3 h-3 rounded-full bg-secondary-container shrink-0"></span>
+                      <span class="font-body-md text-body-md text-on-surface">Verification pending</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <span class="font-code-md text-code-md font-semibold text-secondary">205</span>
+                      <span class="font-label-sm text-label-sm text-on-surface-variant w-12 text-right">5.1%</span>
+                    </div>
+                  </div>
+                  <div class="flex items-center justify-between p-2 rounded bg-surface-container-low">
+                    <div class="flex items-center gap-2">
+                      <span class="w-3 h-3 rounded-full bg-outline shrink-0"></span>
+                      <span class="font-body-md text-body-md text-on-surface">Source unavailable</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <span class="font-code-md text-code-md font-semibold text-on-surface-variant">96</span>
+                      <span class="font-label-sm text-label-sm text-on-surface-variant w-12 text-right">2.4%</span>
+                    </div>
+                  </div>
+                  <div class="flex items-center justify-between p-2 rounded bg-surface-container-low">
+                    <div class="flex items-center gap-2">
+                      <span class="w-3 h-3 rounded-full bg-primary-container shrink-0"></span>
+                      <span class="font-body-md text-body-md text-on-surface">Manual review required</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <span class="font-code-md text-code-md font-semibold text-primary">341</span>
+                      <span class="font-label-sm text-label-sm text-on-surface-variant w-12 text-right">8.6%</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="mt-space-md pt-space-sm bg-surface-container-low p-space-sm rounded flex items-center justify-between">
+                <span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-semibold">Total Checks Ingested</span>
+                <span class="font-code-md text-code-md font-bold text-primary">3,987 total</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Analytical Triad -->
+          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-space-md">
+            <!-- Card 1: Unresolved Items -->
+            <div class="bg-surface-container-lowest rounded p-space-md shadow-sm border border-outline-variant/30 flex flex-col justify-between">
+              <div>
+                <div class="flex items-center justify-between pb-space-sm">
+                  <div class="flex items-center gap-space-xs">
+                    <span class="material-symbols-outlined text-secondary text-[20px]">bar_chart</span>
+                    <span class="font-headline-sm text-headline-sm text-primary font-bold">Unresolved Items by Category</span>
+                  </div>
+                  <span class="font-code-sm text-code-sm text-on-surface-variant font-bold">482 Total</span>
+                </div>
+                <p class="font-body-sm text-body-sm text-on-surface-variant mb-space-md">
+                  Actionable anomalies flagged during institutional ingestion.
+                </p>
+                <div class="flex flex-col gap-3">
+                  <div>
+                    <div class="flex justify-between font-body-sm text-body-sm mb-1">
+                      <span class="text-on-surface">Expired documents</span>
+                      <span class="font-code-sm text-code-sm font-semibold text-primary">118</span>
+                    </div>
+                    <div class="w-full bg-surface-container-low h-2 rounded-full overflow-hidden">
+                      <div class="bg-on-tertiary-container h-full rounded-full" style="width: 82%;"></div>
+                    </div>
+                  </div>
+                  <div>
+                    <div class="flex justify-between font-body-sm text-body-sm mb-1">
+                      <span class="text-on-surface">Anomaly indicators (ELA / YOLO)</span>
+                      <span class="font-code-sm text-code-sm font-semibold text-primary">94</span>
+                    </div>
+                    <div class="w-full bg-surface-container-low h-2 rounded-full overflow-hidden">
+                      <div class="bg-error h-full rounded-full" style="width: 65%;"></div>
+                    </div>
+                  </div>
+                  <div>
+                    <div class="flex justify-between font-body-sm text-body-sm mb-1">
+                      <span class="text-on-surface">Inconsistent details (OCR vs Form)</span>
+                      <span class="font-code-sm text-code-sm font-semibold text-primary">89</span>
+                    </div>
+                    <div class="w-full bg-surface-container-low h-2 rounded-full overflow-hidden">
+                      <div class="bg-secondary h-full rounded-full" style="width: 62%;"></div>
+                    </div>
+                  </div>
+                  <div>
+                    <div class="flex justify-between font-body-sm text-body-sm mb-1">
+                      <span class="text-on-surface">Compliance discrepancies</span>
+                      <span class="font-code-sm text-code-sm font-semibold text-primary">76</span>
+                    </div>
+                    <div class="w-full bg-surface-container-low h-2 rounded-full overflow-hidden">
+                      <div class="bg-secondary-container h-full rounded-full" style="width: 53%;"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="mt-space-md pt-space-xs text-right border-t border-surface-container">
+                <a class="font-body-sm text-body-sm text-secondary hover:text-primary transition-colors inline-flex items-center gap-1 font-semibold" href="#applications" onclick="window.ValidexApp.navigateTo('applications'); return false;">
+                  <span>Drill into category ledger</span>
+                  <span class="material-symbols-outlined text-[14px]">open_in_new</span>
+                </a>
+              </div>
+            </div>
+
+            <!-- Card 2: Recent Alerts -->
+            <div class="bg-surface-container-lowest rounded p-space-md shadow-sm border border-outline-variant/30 flex flex-col justify-between">
+              <div>
+                <div class="flex items-center justify-between pb-space-sm">
+                  <div class="flex items-center gap-space-xs">
+                    <span class="material-symbols-outlined text-error text-[20px]">crisis_alert</span>
+                    <span class="font-headline-sm text-headline-sm text-primary font-bold">Recent Alerts</span>
+                  </div>
+                  <span class="px-2 py-0.5 rounded bg-error-container text-on-error-container font-label-sm text-label-sm font-bold">19 Unhandled</span>
+                </div>
+                <p class="font-body-sm text-body-sm text-on-surface-variant mb-space-md">
+                  Immediate anomalies requiring scrutineer intervention.
+                </p>
+                <div class="flex flex-col gap-2">
+                  <div class="p-2 rounded bg-surface-container-low flex items-start justify-between gap-space-sm">
+                    <div class="min-w-0">
+                      <div class="flex items-center gap-2">
+                        <span class="px-1.5 py-0.2 rounded-full bg-error text-on-error font-code-sm text-code-sm font-bold">HIGH</span>
+                        <span class="font-code-sm text-code-sm text-primary font-semibold">APP-2026-EOA-00437</span>
+                        <span class="font-body-sm text-body-sm text-outline">2m ago</span>
+                      </div>
+                      <p class="font-body-sm text-body-sm text-on-surface mt-0.5 truncate font-medium">Building plan approval seal mismatch detected</p>
+                    </div>
+                    <button class="shrink-0 p-1 text-secondary hover:text-primary rounded hover:bg-surface-container" onclick="window.ValidexApp.viewDocket('APP-2026-EOA-00437')">
+                      <span class="material-symbols-outlined text-[18px]">launch</span>
+                    </button>
+                  </div>
+                  <div class="p-2 rounded bg-surface-container-low flex items-start justify-between gap-space-sm">
+                    <div class="min-w-0">
+                      <div class="flex items-center gap-2">
+                        <span class="px-1.5 py-0.2 rounded-full bg-error text-on-error font-code-sm text-code-sm font-bold">HIGH</span>
+                        <span class="font-code-sm text-code-sm text-primary font-semibold">APP-2026-EOA-00418</span>
+                        <span class="font-body-sm text-body-sm text-outline">14m ago</span>
+                      </div>
+                      <p class="font-body-sm text-body-sm text-on-surface mt-0.5 truncate font-medium">Faculty roster duplicate Aadhaar hash flagged</p>
+                    </div>
+                    <button class="shrink-0 p-1 text-secondary hover:text-primary rounded hover:bg-surface-container" onclick="window.ValidexApp.viewDocket('APP-2026-EOA-00418')">
+                      <span class="material-symbols-outlined text-[18px]">launch</span>
+                    </button>
+                  </div>
+                  <div class="p-2 rounded bg-surface-container-low flex items-start justify-between gap-space-sm">
+                    <div class="min-w-0">
+                      <div class="flex items-center gap-2">
+                        <span class="px-1.5 py-0.2 rounded-full bg-tertiary-fixed text-on-tertiary-fixed font-code-sm text-code-sm font-bold">MED</span>
+                        <span class="font-code-sm text-code-sm text-primary font-semibold">APP-2026-EOA-00417</span>
+                        <span class="font-body-sm text-body-sm text-outline">28m ago</span>
+                      </div>
+                      <p class="font-body-sm text-body-sm text-on-surface mt-0.5 truncate font-medium">State Govt NOC expired 14 Mar 2026</p>
+                    </div>
+                    <button class="shrink-0 p-1 text-secondary hover:text-primary rounded hover:bg-surface-container" onclick="window.ValidexApp.viewDocket('APP-2026-EOA-00417')">
+                      <span class="material-symbols-outlined text-[18px]">launch</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div class="mt-space-md pt-space-xs text-right border-t border-surface-container">
+                <a class="font-body-sm text-body-sm text-secondary hover:text-primary transition-colors inline-flex items-center gap-1 font-semibold" href="#alerts" onclick="window.ValidexApp.navigateTo('alerts-and-notifications'); return false;">
+                  <span>View all 19 notifications</span>
+                  <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
+                </a>
+              </div>
+            </div>
+
+            <!-- Card 3: Processing Queues -->
+            <div class="bg-surface-container-lowest rounded p-space-md shadow-sm border border-outline-variant/30 flex flex-col justify-between">
+              <div>
+                <div class="flex items-center justify-between pb-space-sm">
+                  <div class="flex items-center gap-space-xs">
+                    <span class="material-symbols-outlined text-secondary text-[20px]">dns</span>
+                    <span class="font-headline-sm text-headline-sm text-primary font-bold">Processing Queues</span>
+                  </div>
+                  <div class="flex items-center gap-1 px-2 py-0.5 rounded bg-surface-container-low text-secondary font-code-sm text-code-sm font-semibold">
+                    <span class="w-2 h-2 rounded-full bg-secondary animate-ping"></span>
+                    <span>ONLINE</span>
+                  </div>
+                </div>
+                <p class="font-body-sm text-body-sm text-on-surface-variant mb-space-md">
+                  Real-time statutory verification harness & inference load.
+                </p>
+                <!-- Light Queue -->
+                <div class="p-space-sm rounded bg-surface-container-low mb-space-md border border-outline-variant/30">
+                  <div class="flex items-center justify-between mb-1">
+                    <div class="flex items-center gap-1.5">
+                      <span class="material-symbols-outlined text-secondary text-[16px]">bolt</span>
+                      <span class="font-body-md-medium text-body-md-medium text-primary font-bold">Light Queue</span>
+                    </div>
+                    <span class="font-code-sm text-code-sm font-semibold text-secondary">12 in queue</span>
+                  </div>
+                  <p class="font-body-sm text-body-sm text-on-surface-variant mb-2">API Setu & DigiLocker External Validations</p>
+                  <div class="w-full bg-surface-container h-2 rounded-full overflow-hidden mb-1.5">
+                    <div class="bg-secondary h-full rounded-full" style="width: 24%;"></div>
+                  </div>
+                  <div class="flex items-center justify-between font-code-sm text-code-sm text-outline">
+                    <span>Latency: 2.8s</span>
+                    <span>Worker Pool: 8/8 Active</span>
+                  </div>
+                </div>
+                <!-- Heavy Queue -->
+                <div class="p-space-sm rounded bg-surface-container-low border border-outline-variant/30">
+                  <div class="flex items-center justify-between mb-1">
+                    <div class="flex items-center gap-1.5">
+                      <span class="material-symbols-outlined text-on-tertiary-container text-[16px]">memory</span>
+                      <span class="font-body-md-medium text-body-md-medium text-primary font-bold">Heavy Queue</span>
+                    </div>
+                    <span class="font-code-sm text-code-sm font-semibold text-on-tertiary-container">25 in queue</span>
+                  </div>
+                  <p class="font-body-sm text-body-sm text-on-surface-variant mb-2">OCR Ingestion, ELA Splicing & YOLOv8 Lab Detection</p>
+                  <div class="w-full bg-surface-container h-2 rounded-full overflow-hidden mb-1.5">
+                    <div class="bg-on-tertiary-container h-full rounded-full" style="width: 68%;"></div>
+                  </div>
+                  <div class="flex items-center justify-between font-code-sm text-code-sm text-outline">
+                    <span>Avg Time: 3m 42s</span>
+                    <span>GPU Cluster: 4 T4 Online</span>
+                  </div>
+                </div>
+              </div>
+              <div class="mt-space-md pt-space-xs flex items-center justify-between border-t border-surface-container">
+                <span class="font-label-sm text-label-sm text-outline uppercase font-semibold">Engine: Validex-Vision v2.4</span>
+                <button class="font-body-sm text-body-sm text-secondary hover:text-primary flex items-center gap-0.5 font-semibold" onclick="window.ValidexApp.navigateTo('evaluation-metrics')">
+                  <span>Queue telemetry</span>
+                  <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Priority Action Center -->
+          <div class="flex flex-col gap-space-sm">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-space-xs">
+                <span class="material-symbols-outlined text-error text-[20px]">assignment_late</span>
+                <span class="font-headline-md text-headline-md text-primary font-bold">Needs Your Attention Today</span>
+                <span class="px-2 py-0.5 rounded bg-surface-container-high text-on-surface font-code-sm text-code-sm font-bold">
+                  High Scrutineer Urgency
+                </span>
+              </div>
+              <span class="font-body-sm text-body-sm text-on-surface-variant font-semibold">Allocated to Ananya Krishnan (AK-9921)</span>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-space-md">
+              <!-- Action Card 1 -->
+              <div class="bg-surface-container-lowest rounded p-space-md shadow-sm border border-outline-variant/30 flex flex-col justify-between hover:shadow-md transition-shadow relative overflow-hidden">
+                <div class="absolute top-0 left-0 right-0 h-1 bg-on-tertiary-container"></div>
+                <div>
+                  <div class="flex items-center justify-between mb-2">
+                    <span class="font-code-sm text-code-sm font-bold text-primary">APP-2026-EOA-00417</span>
+                    <span class="px-1.5 py-0.5 rounded bg-tertiary-fixed text-on-tertiary-fixed font-code-sm text-code-sm font-bold">EXPIRY</span>
+                  </div>
+                  <h4 class="font-body-md-medium text-body-md-medium text-on-surface font-bold line-clamp-1" title="Sri Vidyasagar Institute of Technology">
+                    Sri Vidyasagar Inst. of Technology
+                  </h4>
+                  <p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Coimbatore · Engineering</p>
+                  <div class="mt-space-md p-2 rounded bg-surface-container-low flex flex-col gap-1.5 border border-outline-variant/30">
+                    <div class="flex items-center gap-1.5">
+                      <span class="material-symbols-outlined text-on-tertiary-container text-[16px]">warning</span>
+                      <span class="font-label-sm text-label-sm font-bold text-on-tertiary-container uppercase tracking-wider">Discrepancy</span>
+                    </div>
+                    <p class="font-body-sm text-body-sm text-on-surface">1 Expired State Govt NOC (Lapsed 14 Mar 2026)</p>
+                  </div>
+                </div>
+                <div class="mt-space-md pt-space-xs flex items-center justify-between border-t border-surface-container">
+                  <span class="font-code-sm text-code-sm text-outline">Tier 1 Scrutiny</span>
+                  <button class="h-8 px-4 rounded bg-primary-container text-on-primary font-body-md-medium text-body-md-medium hover:bg-primary transition-colors shadow-sm flex items-center gap-1" type="button" onclick="window.ValidexApp.viewDocket('APP-2026-EOA-00417')">
+                    <span>Review</span>
+                    <span class="material-symbols-outlined text-[16px]">chevron_right</span>
+                  </button>
+                </div>
+              </div>
+              <!-- Action Card 2 -->
+              <div class="bg-surface-container-lowest rounded p-space-md shadow-sm border border-outline-variant/30 flex flex-col justify-between hover:shadow-md transition-shadow relative overflow-hidden">
+                <div class="absolute top-0 left-0 right-0 h-1 bg-error"></div>
+                <div>
+                  <div class="flex items-center justify-between mb-2">
+                    <span class="font-code-sm text-code-sm font-bold text-primary">APP-2026-EOA-00418</span>
+                    <span class="px-1.5 py-0.5 rounded bg-error-container text-on-error-container font-code-sm text-code-sm font-bold">MISMATCH</span>
+                  </div>
+                  <h4 class="font-body-md-medium text-body-md-medium text-on-surface font-bold line-clamp-1" title="Narmada Valley College of Engineering">
+                    Narmada Valley College of Eng.
+                  </h4>
+                  <p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Bhopal · Technology</p>
+                  <div class="mt-space-md p-2 rounded bg-surface-container-low flex flex-col gap-1.5 border border-outline-variant/30">
+                    <div class="flex items-center gap-1.5">
+                      <span class="material-symbols-outlined text-error text-[16px]">gavel</span>
+                      <span class="font-label-sm text-label-sm font-bold text-error uppercase tracking-wider">Accreditation Delta</span>
+                    </div>
+                    <p class="font-body-sm text-body-sm text-on-surface">NBA Accreditation tier mismatch across mechanical stream</p>
+                  </div>
+                </div>
+                <div class="mt-space-md pt-space-xs flex items-center justify-between border-t border-surface-container">
+                  <span class="font-code-sm text-code-sm text-outline">Tier 2 Hearing</span>
+                  <button class="h-8 px-4 rounded bg-primary-container text-on-primary font-body-md-medium text-body-md-medium hover:bg-primary transition-colors shadow-sm flex items-center gap-1" type="button" onclick="window.ValidexApp.viewDocket('APP-2026-EOA-00418')">
+                    <span>Review</span>
+                    <span class="material-symbols-outlined text-[16px]">chevron_right</span>
+                  </button>
+                </div>
+              </div>
+              <!-- Action Card 3 -->
+              <div class="bg-surface-container-lowest rounded p-space-md shadow-sm border border-outline-variant/30 flex flex-col justify-between hover:shadow-md transition-shadow relative overflow-hidden">
+                <div class="absolute top-0 left-0 right-0 h-1 bg-secondary"></div>
+                <div>
+                  <div class="flex items-center justify-between mb-2">
+                    <span class="font-code-sm text-code-sm font-bold text-primary">APP-2026-EOA-00433</span>
+                    <span class="px-1.5 py-0.5 rounded bg-secondary-fixed text-on-secondary-fixed font-code-sm text-code-sm font-bold">CAPACITY</span>
+                  </div>
+                  <h4 class="font-body-md-medium text-body-md-medium text-on-surface font-bold line-clamp-1" title="Godavari College of Engineering">
+                    Godavari College of Engineering
+                  </h4>
+                  <p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Nagpur · Engineering</p>
+                  <div class="mt-space-md p-2 rounded bg-surface-container-low flex flex-col gap-1.5 border border-outline-variant/30">
+                    <div class="flex items-center gap-1.5">
+                      <span class="material-symbols-outlined text-secondary text-[16px]">group_add</span>
+                      <span class="font-label-sm text-label-sm font-bold text-secondary uppercase tracking-wider">Statutory Check</span>
+                    </div>
+                    <p class="font-body-sm text-body-sm text-on-surface">Intake +60 discrepancy without requisite built-up area</p>
+                  </div>
+                </div>
+                <div class="mt-space-md pt-space-xs flex items-center justify-between border-t border-surface-container">
+                  <span class="font-code-sm text-code-sm text-outline">Tier 1 Scrutiny</span>
+                  <button class="h-8 px-4 rounded bg-primary-container text-on-primary font-body-md-medium text-body-md-medium hover:bg-primary transition-colors shadow-sm flex items-center gap-1" type="button" onclick="window.ValidexApp.viewDocket('APP-2026-EOA-00433')">
+                    <span>Review</span>
+                    <span class="material-symbols-outlined text-[16px]">chevron_right</span>
+                  </button>
+                </div>
+              </div>
+              <!-- Action Card 4 -->
+              <div class="bg-surface-container-lowest rounded p-space-md shadow-sm border border-outline-variant/30 flex flex-col justify-between hover:shadow-md transition-shadow relative overflow-hidden">
+                <div class="absolute top-0 left-0 right-0 h-1 bg-error"></div>
+                <div>
+                  <div class="flex items-center justify-between mb-2">
+                    <span class="font-code-sm text-code-sm font-bold text-primary">APP-2026-EOA-00437</span>
+                    <span class="px-1.5 py-0.5 rounded bg-error-container text-on-error-container font-code-sm text-code-sm font-bold">INFRA-VISION</span>
+                  </div>
+                  <h4 class="font-body-md-medium text-body-md-medium text-on-surface font-bold line-clamp-1" title="Sahyadri Inst. of Computer Applications">
+                    Sahyadri Inst. of Comp. App.
+                  </h4>
+                  <p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Pune · Computer Applications</p>
+                  <div class="mt-space-md p-2 rounded bg-surface-container-low flex flex-col gap-1.5 border border-outline-variant/30">
+                    <div class="flex items-center gap-1.5">
+                      <span class="material-symbols-outlined text-error text-[16px]">view_in_ar</span>
+                      <span class="font-label-sm text-label-sm font-bold text-error uppercase tracking-wider">Vision Model Deficit</span>
+                    </div>
+                    <p class="font-body-sm text-body-sm text-on-surface">YOLOv8 detects 42 active terminals; min. 90 mandated</p>
+                  </div>
+                </div>
+                <div class="mt-space-md pt-space-xs flex items-center justify-between border-t border-surface-container">
+                  <span class="font-code-sm text-code-sm text-outline">Tier 2 Verification</span>
+                  <button class="h-8 px-4 rounded bg-primary-container text-on-primary font-body-md-medium text-body-md-medium hover:bg-primary transition-colors shadow-sm flex items-center gap-1" type="button" onclick="window.ValidexApp.viewDocket('APP-2026-EOA-00437')">
+                    <span>Review</span>
+                    <span class="material-symbols-outlined text-[16px]">chevron_right</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- VIEW 2: APPLICATIONS MANAGEMENT                                           -->
+        <!-- ========================================================================= -->
+        <div id="view-applications" class="hidden flex flex-col w-full">
+          <!-- Breadcrumb & Top Bar -->
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-space-md mb-space-lg">
+            <div>
+              <div class="flex items-center gap-space-xs font-code-sm text-code-sm text-secondary mb-space-2xs">
+                <span class="material-symbols-outlined text-[14px]">assured_workload</span>
+                <span>AICTE CENTRAL SCRUTINY PORTAL</span>
+                <span class="text-outline-variant">/</span>
+                <span class="text-on-surface-variant uppercase tracking-wider font-semibold">APPROVAL PROCESS 2026-27</span>
+              </div>
+              <div class="flex items-baseline gap-space-md">
+                <h1 class="font-headline-lg text-headline-lg text-primary tracking-tight font-bold">Applications Management</h1>
+                <span class="font-body-md text-body-md text-on-surface-variant font-medium">Extension of Approval (EoA) 2026-27 · 1,284 institutional dossiers</span>
+              </div>
+            </div>
+            <!-- Global Actions -->
+            <div class="flex items-center gap-space-sm shrink-0">
+              <button class="h-8 px-space-md bg-surface-container-lowest text-primary hover:bg-surface-container-low font-body-md-medium text-body-md-medium rounded shadow-sm flex items-center gap-space-xs border border-outline-variant/40 transition-colors" type="button" onclick="alert('Bulk assignment dispatched to regional committee members.')">
+                <span class="material-symbols-outlined text-[16px] text-secondary">group_add</span>
+                <span>Bulk Assign</span>
+              </button>
+              <button class="h-8 px-space-md bg-surface-container-lowest text-primary hover:bg-surface-container-low font-body-md-medium text-body-md-medium rounded shadow-sm flex items-center gap-space-xs border border-outline-variant/40 transition-colors" type="button" onclick="window.ValidexApp.exportGazetteLedger()">
+                <span class="material-symbols-outlined text-[16px] text-on-surface-variant">receipt_long</span>
+                <span>Export List (Logged)</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Saved View Category Tabs -->
+          <div id="category-tabs" class="bg-surface-container-lowest rounded-t shadow-sm px-space-md pt-space-xs flex items-center gap-space-xs overflow-x-auto border-t border-x border-outline-variant/40">
+            <button data-tab="all" class="px-space-md py-2.5 font-body-md-medium text-body-md-medium text-secondary bg-surface-container-low rounded-t flex items-center gap-space-xs shrink-0 font-bold border-b-2 border-secondary" type="button" onclick="window.ValidexApp.setCategoryTab('all')">
+              <span class="material-symbols-outlined text-[16px]">folder_special</span>
+              <span>All Applications</span>
+              <span class="ml-1 px-1.5 py-0.2 rounded-full bg-secondary-fixed text-on-secondary-fixed font-code-sm text-code-sm font-bold">1,284</span>
+            </button>
+            <button data-tab="awaiting" class="px-space-md py-2.5 font-body-md-medium text-body-md-medium text-on-surface-variant hover:text-primary hover:bg-surface-container-lowest rounded-t flex items-center gap-space-xs shrink-0 transition-colors" type="button" onclick="window.ValidexApp.setCategoryTab('awaiting')">
+              <span>Awaiting Review</span>
+              <span class="ml-1 px-1.5 py-0.2 rounded-full bg-surface-container-highest text-on-surface-variant font-code-sm text-code-sm">214</span>
+            </button>
+            <button data-tab="processing" class="px-space-md py-2.5 font-body-md-medium text-body-md-medium text-on-surface-variant hover:text-primary hover:bg-surface-container-lowest rounded-t flex items-center gap-space-xs shrink-0 transition-colors" type="button" onclick="window.ValidexApp.setCategoryTab('processing')">
+              <span>Processing</span>
+              <span class="ml-1 px-1.5 py-0.2 rounded-full bg-surface-container-highest text-on-surface-variant font-code-sm text-code-sm">37</span>
+            </button>
+            <button data-tab="needs_action" class="px-space-md py-2.5 font-body-md-medium text-body-md-medium text-on-surface-variant hover:text-primary hover:bg-surface-container-lowest rounded-t flex items-center gap-space-xs shrink-0 transition-colors" type="button" onclick="window.ValidexApp.setCategoryTab('needs_action')">
+              <span>Needs College Action</span>
+              <span class="ml-1 px-1.5 py-0.2 rounded-full bg-tertiary-fixed text-on-tertiary-fixed font-code-sm text-code-sm font-bold">96</span>
+            </button>
+            <button data-tab="escalated" class="px-space-md py-2.5 font-body-md-medium text-body-md-medium text-on-surface-variant hover:text-primary hover:bg-surface-container-lowest rounded-t flex items-center gap-space-xs shrink-0 transition-colors" type="button" onclick="window.ValidexApp.setCategoryTab('escalated')">
+              <span>Escalated to SAC</span>
+              <span class="ml-1 px-1.5 py-0.2 rounded-full bg-error-container text-on-error-container font-code-sm text-code-sm font-bold">23</span>
+            </button>
+            <button data-tab="cleared" class="px-space-md py-2.5 font-body-md-medium text-body-md-medium text-on-surface-variant hover:text-primary hover:bg-surface-container-lowest rounded-t flex items-center gap-space-xs shrink-0 transition-colors" type="button" onclick="window.ValidexApp.setCategoryTab('cleared')">
+              <span>Decision Recorded</span>
+              <span class="ml-1 px-1.5 py-0.2 rounded-full bg-surface-container-highest text-on-surface-variant font-code-sm text-code-sm">610</span>
+            </button>
+          </div>
+
+          <!-- Filter & Query Control Deck -->
+          <div class="bg-surface-container-lowest p-space-md shadow-sm mb-space-md rounded-b border-b border-x border-outline-variant/40">
+            <div class="grid grid-cols-1 xl:grid-cols-12 gap-space-sm items-center">
+              <!-- Search Input -->
+              <div class="xl:col-span-4 relative flex items-center">
+                <span class="material-symbols-outlined absolute left-space-sm text-[18px] text-outline pointer-events-none">search</span>
+                <input class="w-full h-8 pl-9 pr-space-md bg-surface-container-low font-body-md text-body-md text-on-surface placeholder:text-outline rounded focus:bg-surface-container-lowest outline-none border border-outline-variant/40 text-xs" placeholder="Search application ID, institution, society or pin..." type="text" oninput="window.ValidexApp.onSearchInput(this.value)"/>
+              </div>
+              <!-- Quick Select Dropdowns -->
+              <div class="xl:col-span-8 flex flex-wrap items-center justify-between gap-space-xs">
+                <div class="flex flex-wrap items-center gap-space-xs">
+                  <!-- State -->
+                  <div class="relative">
+                    <select class="h-8 pl-2.5 pr-7 bg-surface-container-low font-body-md-medium text-body-md-medium text-on-surface rounded appearance-none cursor-pointer outline-none border border-outline-variant/40 text-xs" onchange="window.ValidexApp.onStateFilterChange(this.value)">
+                      <option value="all">State: All (Pan-India)</option>
+                      <option value="Tamil Nadu">Tamil Nadu (TN)</option>
+                      <option value="Maharashtra">Maharashtra (MH)</option>
+                      <option value="Madhya Pradesh">Madhya Pradesh (MP)</option>
+                      <option value="Karnataka">Karnataka (KA)</option>
+                      <option value="Rajasthan">Rajasthan (RJ)</option>
+                      <option value="Uttarakhand">Uttarakhand (UK)</option>
+                      <option value="Assam">Assam (AS)</option>
+                    </select>
+                    <span class="material-symbols-outlined absolute right-1.5 top-2 text-[14px] text-outline pointer-events-none">expand_more</span>
+                  </div>
+                  <!-- Type -->
+                  <div class="relative">
+                    <select class="h-8 pl-2.5 pr-7 bg-surface-container-low font-body-md-medium text-body-md-medium text-on-surface rounded appearance-none cursor-pointer outline-none border border-outline-variant/40 text-xs" onchange="window.ValidexApp.onTypeFilterChange(this.value)">
+                      <option value="all">Type: All Programmes</option>
+                      <option value="Engineering">Engineering & Tech</option>
+                      <option value="Management">Management (MBA/PGDM)</option>
+                      <option value="Pharmacy">Pharmacy</option>
+                      <option value="Architecture">Architecture</option>
+                      <option value="Diploma">Polytechnic Diploma</option>
+                    </select>
+                    <span class="material-symbols-outlined absolute right-1.5 top-2 text-[14px] text-outline pointer-events-none">expand_more</span>
+                  </div>
+                  <!-- Reviewer -->
+                  <div class="relative">
+                    <select class="h-8 pl-2.5 pr-7 bg-surface-container-low font-body-md-medium text-body-md-medium text-on-surface rounded appearance-none cursor-pointer outline-none border border-outline-variant/40 text-xs" onchange="window.ValidexApp.onReviewerFilterChange(this.value)">
+                      <option value="all">Reviewer: All Officers</option>
+                      <option value="Ananya Krishnan">Ananya Krishnan (Me)</option>
+                      <option value="Vikram Deshpande">Vikram Deshpande</option>
+                      <option value="Priyanka Sharma">Priyanka Sharma</option>
+                      <option value="Unassigned">Unassigned</option>
+                    </select>
+                    <span class="material-symbols-outlined absolute right-1.5 top-2 text-[14px] text-outline pointer-events-none">expand_more</span>
+                  </div>
+                </div>
+                <div class="flex items-center gap-space-xs ml-auto">
+                  <span class="font-code-sm text-code-sm text-outline">Filtered: <strong id="apps-filtered-count" class="text-primary font-bold">10</strong></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Floating Bulk Actions Bar -->
+            <div id="bulk-actions-bar" class="hidden mt-3 p-2 rounded bg-primary text-on-primary flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-[18px]">check_box</span>
+                <span id="selected-count-badge" class="font-label-md font-bold">1 selected</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <button class="px-2.5 py-1 rounded bg-secondary text-white font-label-sm font-semibold hover:bg-on-secondary-container" onclick="alert('Bulk verification batch initiated for selected dockets.')">Batch Verify</button>
+                <button class="px-2.5 py-1 rounded bg-error text-white font-label-sm font-semibold hover:bg-[#912018]" onclick="alert('Deficiency letters queued for selected institutions.')">Issue Defect Notices</button>
+                <button class="px-2.5 py-1 rounded bg-white/20 text-white font-label-sm font-semibold hover:bg-white/30" onclick="window.ValidexApp.selectAllRows(false)">Deselect All</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dual Workspace Pane: Master Data Table + Right Preview Drawer -->
+          <div class="flex flex-col lg:flex-row gap-space-md items-start w-full relative">
+            <!-- Left Master Table Viewport -->
+            <div class="flex-1 w-full bg-surface-container-lowest rounded shadow-md overflow-hidden border border-outline-variant/40">
+              <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                  <thead>
+                    <tr class="bg-surface-container-low h-9 text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider select-none border-b border-surface-container">
+                      <th class="w-10 px-3 text-center">
+                        <input class="rounded cursor-pointer w-4 h-4 text-primary" type="checkbox" onchange="window.ValidexApp.selectAllRows(this.checked)"/>
+                      </th>
+                      <th class="px-space-md whitespace-nowrap cursor-pointer hover:text-primary">
+                        <div class="flex items-center gap-1 font-semibold">Application ID <span class="material-symbols-outlined text-[14px]">arrow_downward</span></div>
+                      </th>
+                      <th class="px-space-md whitespace-nowrap font-semibold">Institution & Location</th>
+                      <th class="px-space-md whitespace-nowrap font-semibold">Type</th>
+                      <th class="px-space-md whitespace-nowrap font-semibold">Submitted</th>
+                      <th class="px-space-md whitespace-nowrap font-semibold">Dossier (10)</th>
+                      <th class="px-space-md whitespace-nowrap font-semibold">Checklist</th>
+                      <th class="px-space-md whitespace-nowrap text-center font-semibold">Verification Matrix</th>
+                      <th class="px-space-md whitespace-nowrap text-center font-semibold">Flags</th>
+                      <th class="px-space-md whitespace-nowrap font-semibold">Status</th>
+                      <th class="px-space-md whitespace-nowrap font-semibold">Adjudicator</th>
+                      <th class="px-space-md whitespace-nowrap font-semibold">Last Activity</th>
+                    </tr>
+                  </thead>
+                  <tbody id="applications-master-tbody" class="text-on-surface font-body-md text-body-md">
+                    <!-- Populated dynamically by app.js -->
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- Pagination -->
+              <div class="h-11 px-space-md bg-surface-container-low flex flex-col sm:flex-row items-center justify-between gap-space-sm text-on-surface-variant font-body-sm text-body-sm border-t border-surface-container">
+                <div class="flex items-center gap-space-md">
+                  <span class="font-code-sm text-code-sm">Showing <strong class="text-primary font-semibold">1-10</strong> of <strong class="text-primary font-semibold">1,284</strong> applications</span>
+                </div>
+                <div class="flex items-center gap-1">
+                  <button class="w-7 h-7 bg-surface-container-lowest hover:bg-surface-container rounded flex items-center justify-center text-outline disabled:opacity-50" disabled="" type="button">
+                    <span class="material-symbols-outlined text-[16px]">chevron_left</span>
+                  </button>
+                  <button class="w-7 h-7 bg-primary text-on-primary font-code-sm text-code-sm rounded font-semibold" type="button">1</button>
+                  <button class="w-7 h-7 bg-surface-container-lowest hover:bg-surface-container font-code-sm text-code-sm rounded text-primary" type="button" onclick="alert('Page 2 loaded.')">2</button>
+                  <button class="w-7 h-7 bg-surface-container-lowest hover:bg-surface-container font-code-sm text-code-sm rounded text-primary" type="button" onclick="alert('Page 3 loaded.')">3</button>
+                  <span class="px-1 text-outline">...</span>
+                  <button class="w-7 h-7 bg-surface-container-lowest hover:bg-surface-container font-code-sm text-code-sm rounded text-primary" type="button">129</button>
+                  <button class="w-7 h-7 bg-surface-container-lowest hover:bg-surface-container rounded flex items-center justify-center text-primary" type="button">
+                    <span class="material-symbols-outlined text-[16px]">chevron_right</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- RIGHT SLIDE-OUT PREVIEW DRAWER (480px width) -->
+            <aside id="previewDrawer" class="w-full lg:w-[480px] shrink-0 bg-surface-container-lowest rounded shadow-xl overflow-hidden flex flex-col border border-outline-variant/40">
+              <div class="h-1 bg-on-tertiary-container w-full"></div>
+              <!-- Header -->
+              <div class="p-space-md bg-surface-container-low flex items-start justify-between border-b border-surface-container">
+                <div>
+                  <div class="flex items-center gap-space-xs mb-1">
+                    <span id="drawer-app-id" class="font-code-md text-code-md font-bold text-secondary tracking-tight">APP-2026-EOA-00417</span>
+                    <span class="px-1.5 py-0.2 rounded bg-secondary-fixed text-on-secondary-fixed font-code-sm text-code-sm font-semibold">EOA DOCKET</span>
+                  </div>
+                  <h2 id="drawer-app-name" class="font-headline-sm text-headline-sm text-primary font-bold leading-tight">Sri Vidyasagar Institute of Technology</h2>
+                  <div id="drawer-app-loc" class="font-body-sm text-body-sm text-on-surface-variant flex items-center gap-1 mt-0.5">
+                    <span class="material-symbols-outlined text-[14px] text-outline">pin_drop</span>
+                    <span>Coimbatore, Tamil Nadu · Anna University Affiliate</span>
+                  </div>
+                </div>
+                <button class="p-1 hover:bg-surface-container rounded text-outline hover:text-primary transition-colors" onclick="window.ValidexApp.closeDrawer()" title="Collapse Drawer" type="button">
+                  <span class="material-symbols-outlined text-[20px]">close</span>
+                </button>
+              </div>
+
+              <!-- AI Non-Statutory Advisory Banner -->
+              <div class="px-space-md py-2 bg-surface-container flex items-center justify-between border-b border-surface-container">
+                <div class="flex items-center gap-1.5 font-code-sm text-code-sm text-on-surface-variant">
+                  <span class="w-2 h-2 rounded-full bg-secondary-container"></span>
+                  <span class="font-bold text-primary">AI-ASSISTED</span>
+                  <span class="text-outline">·</span>
+                  <span class="uppercase tracking-wider">ADVISORY: NON-STATUTORY</span>
+                </div>
+                <span id="drawer-conf-score" class="font-label-sm text-label-sm text-outline">Confidence: 94.2%</span>
+              </div>
+
+              <!-- Quick Metadata Strip -->
+              <div class="grid grid-cols-3 bg-surface-container-low p-space-sm gap-2 text-center border-b border-surface-container">
+                <div class="bg-surface-container-lowest p-1.5 rounded border border-outline-variant/30">
+                  <span class="block font-label-sm text-label-sm text-outline uppercase font-semibold">Sanctioned Intake</span>
+                  <span id="drawer-intake" class="font-code-md text-code-md font-bold text-primary">540 Seats</span>
+                </div>
+                <div class="bg-surface-container-lowest p-1.5 rounded border border-outline-variant/30">
+                  <span class="block font-label-sm text-label-sm text-outline uppercase font-semibold">Cadre Faculty</span>
+                  <span id="drawer-faculty" class="font-code-md text-code-md font-bold text-primary">58 Present</span>
+                </div>
+                <div class="bg-surface-container-lowest p-1.5 rounded border border-outline-variant/30">
+                  <span class="block font-label-sm text-label-sm text-outline uppercase font-semibold">Sponsoring Trust</span>
+                  <span id="drawer-society" class="font-code-sm text-code-sm font-semibold text-secondary truncate block">SOC-TN-2009</span>
+                </div>
+              </div>
+
+              <!-- Verification Matrix -->
+              <div class="p-space-md border-b border-surface-container">
+                <div class="flex items-center justify-between mb-space-xs">
+                  <h3 class="font-label-sm text-label-sm text-outline uppercase tracking-wider font-bold">Verification Breakdown</h3>
+                  <span class="font-code-sm text-code-sm text-secondary font-medium">10 Documents Scrutinized</span>
+                </div>
+                <div class="grid grid-cols-2 gap-space-xs">
+                  <div class="p-2 rounded bg-surface-container-low flex items-center justify-between border border-outline-variant/30">
+                    <div class="flex items-center gap-1.5 font-body-sm text-body-sm text-primary font-medium">
+                      <span class="material-symbols-outlined text-[16px] text-secondary">check_circle</span>
+                      <span>Verified</span>
+                    </div>
+                    <span id="drawer-ver-count" class="px-1.5 py-0.5 rounded bg-surface-container-highest text-primary font-code-sm text-code-sm font-bold">3</span>
+                  </div>
+                  <div class="p-2 rounded bg-error-container/40 flex items-center justify-between border border-error-container">
+                    <div class="flex items-center gap-1.5 font-body-sm text-body-sm text-on-error-container font-semibold">
+                      <span class="material-symbols-outlined text-[16px] text-error">error</span>
+                      <span>Mismatch</span>
+                    </div>
+                    <span id="drawer-mis-count" class="px-1.5 py-0.5 rounded bg-error-container text-on-error-container font-code-sm text-code-sm font-bold">1</span>
+                  </div>
+                  <div class="p-2 rounded bg-tertiary-fixed/30 flex items-center justify-between border border-tertiary-fixed">
+                    <div class="flex items-center gap-1.5 font-body-sm text-body-sm text-on-tertiary-fixed font-semibold">
+                      <span class="material-symbols-outlined text-[16px] text-on-tertiary-container">schedule</span>
+                      <span>Expired</span>
+                    </div>
+                    <span id="drawer-exp-count" class="px-1.5 py-0.5 rounded bg-tertiary-fixed text-on-tertiary-fixed font-code-sm text-code-sm font-bold">1</span>
+                  </div>
+                  <div class="p-2 rounded bg-secondary-fixed/40 flex items-center justify-between border border-secondary-fixed">
+                    <div class="flex items-center gap-1.5 font-body-sm text-body-sm text-on-secondary-fixed font-semibold">
+                      <span class="material-symbols-outlined text-[16px] text-secondary">person_search</span>
+                      <span>Manual review</span>
+                    </div>
+                    <span id="drawer-man-count" class="px-1.5 py-0.5 rounded bg-secondary-fixed text-on-secondary-fixed font-code-sm text-code-sm font-bold">2</span>
+                  </div>
+                  <div class="p-2 rounded bg-surface-container-low flex items-center justify-between border border-outline-variant/30">
+                    <div class="flex items-center gap-1.5 font-body-sm text-body-sm text-on-surface-variant font-medium">
+                      <span class="material-symbols-outlined text-[16px] text-outline">hourglass_empty</span>
+                      <span>Pending</span>
+                    </div>
+                    <span id="drawer-pen-count" class="px-1.5 py-0.5 rounded bg-surface-container-highest text-on-surface-variant font-code-sm text-code-sm font-bold">1</span>
+                  </div>
+                  <div class="p-2 rounded bg-surface-container-low flex items-center justify-between border border-outline-variant/30">
+                    <div class="flex items-center gap-1.5 font-body-sm text-body-sm text-on-surface-variant font-medium">
+                      <span class="material-symbols-outlined text-[16px] text-outline">cloud_off</span>
+                      <span>Unavailable</span>
+                    </div>
+                    <span id="drawer-una-count" class="px-1.5 py-0.5 rounded bg-surface-container-highest text-on-surface-variant font-code-sm text-code-sm font-bold">1</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Open Findings Stream -->
+              <div class="p-space-md flex-1 overflow-y-auto max-h-[320px]">
+                <div class="flex items-center justify-between mb-space-xs">
+                  <div class="flex items-center gap-1.5">
+                    <span class="material-symbols-outlined text-[18px] text-error">flag</span>
+                    <h3 class="font-headline-sm text-headline-sm text-primary font-bold">Active Findings</h3>
+                  </div>
+                  <span id="drawer-flags-count" class="px-2 py-0.5 rounded-full bg-error-container text-on-error-container font-code-sm text-code-sm font-bold">7 Flags Active</span>
+                </div>
+                <div class="space-y-space-xs">
+                  <div class="p-2.5 rounded bg-surface-container-low border border-outline-variant/30">
+                    <div class="flex items-start justify-between gap-2">
+                      <div class="flex items-center gap-1.5">
+                        <span class="w-1.5 h-1.5 rounded-full bg-error"></span>
+                        <span class="font-body-md-medium text-body-md-medium text-primary font-bold">NBA Accreditation Mismatch</span>
+                      </div>
+                      <span class="px-1.5 py-0.2 rounded-full bg-error-container text-on-error-container font-code-sm text-[10px] font-bold">HIGH</span>
+                    </div>
+                    <p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Uploaded SAR claims accreditation for 4 disciplines; e-NBA API returns expired date for Civil Engineering.</p>
+                  </div>
+                  <div class="p-2.5 rounded bg-surface-container-low border border-outline-variant/30">
+                    <div class="flex items-start justify-between gap-2">
+                      <div class="flex items-center gap-1.5">
+                        <span class="w-1.5 h-1.5 rounded-full bg-on-tertiary-container"></span>
+                        <span class="font-body-md-medium text-body-md-medium text-primary font-bold">State Govt NOC Lapsed</span>
+                      </div>
+                      <span class="px-1.5 py-0.2 rounded-full bg-tertiary-fixed text-on-tertiary-fixed font-code-sm text-[10px] font-bold">MED</span>
+                    </div>
+                    <p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Tamil Nadu Higher Education NOC expired on 14 Mar 2026. Extension of Approval deferred pending renewal receipt.</p>
+                  </div>
+                  <div class="p-2.5 rounded bg-surface-container-low border border-outline-variant/30">
+                    <div class="flex items-start justify-between gap-2">
+                      <div class="flex items-center gap-1.5">
+                        <span class="w-1.5 h-1.5 rounded-full bg-error"></span>
+                        <span class="font-body-md-medium text-body-md-medium text-primary font-bold">YOLOv8 Computer Vision Deficit</span>
+                      </div>
+                      <span class="px-1.5 py-0.2 rounded-full bg-error-container text-on-error-container font-code-sm text-[10px] font-bold">HIGH</span>
+                    </div>
+                    <p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Automated terminal extraction identified only 38 operational terminals in Computer Lab C-104 vs declared 60.</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Drawer Action Footers -->
+              <div class="p-space-md bg-surface-container-low flex flex-col gap-space-xs border-t border-surface-container">
+                <button class="h-9 w-full bg-primary hover:bg-primary-container text-on-primary font-body-md-medium text-body-md-medium rounded flex items-center justify-center gap-space-xs shadow-sm transition-colors font-semibold" onclick="window.ValidexApp.navigateTo('workspace')">
+                  <span class="material-symbols-outlined text-[18px]">gavel</span>
+                  <span>Open Reviewer Workspace</span>
+                </button>
+                <button class="h-8 w-full bg-surface-container-lowest hover:bg-surface-container font-body-md-medium text-body-md-medium text-primary rounded flex items-center justify-center gap-space-xs shadow-sm transition-colors border border-outline-variant/30" onclick="window.ValidexApp.navigateTo('overview')">
+                  <span class="material-symbols-outlined text-[16px] text-secondary">open_in_new</span>
+                  <span>Open Application Overview</span>
+                </button>
+              </div>
+            </aside>
+          </div>
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- VIEW 3: REVIEWER WORKSPACE SPLIT COMPARISON                               -->
+        <!-- ========================================================================= -->
+        <div id="view-workspace" class="hidden flex flex-col w-full pb-24">
+          <!-- Top Workspace Navigation Bar -->
+          <div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm mb-space-lg flex flex-col gap-space-sm border border-outline-variant/40">
+            <div class="flex flex-wrap items-center justify-between gap-space-md">
+              <!-- Breadcrumb Navigation -->
+              <div class="flex items-center gap-space-xs font-body-sm text-body-sm text-on-surface-variant">
+                <span class="hover:text-secondary cursor-pointer font-medium" onclick="window.ValidexApp.navigateTo('applications')">Applications</span>
+                <span class="text-outline-variant">/</span>
+                <span id="workspace-app-id" class="font-code-sm text-code-sm text-primary font-bold cursor-pointer hover:underline" onclick="window.ValidexApp.navigateTo('overview')">APP-2026-EOA-00417</span>
+                <span class="text-outline-variant">/</span>
+                <span id="workspace-doc-title" class="font-body-md-medium text-body-md-medium text-on-surface flex items-center gap-1 font-bold">
+                  <span class="w-2 h-2 rounded-full bg-error animate-pulse"></span>
+                  D4: Accreditation Certificate (NBA)
+                </span>
+              </div>
+              <!-- Quick Metrics & Keyboard Shortcut Legend -->
+              <div class="flex items-center gap-space-md">
+                <div id="workspace-open-items-badge" class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-error-container text-on-error-container font-label-sm text-label-sm font-bold">
+                  <span class="material-symbols-outlined text-[15px]">flag</span>
+                  Document 4 of 10 · 7 open items across dossier
+                </div>
+                <div class="hidden 2xl:flex items-center gap-1 text-on-surface-variant font-code-sm text-code-sm">
+                  <span class="px-1.5 py-0.5 rounded bg-surface-container text-on-surface font-bold">J/K</span><span class="text-outline-variant mr-1">Nav</span>
+                  <span class="px-1.5 py-0.5 rounded bg-surface-container text-on-surface font-bold">A</span><span class="text-outline-variant mr-1">Accept</span>
+                  <span class="px-1.5 py-0.5 rounded bg-surface-container text-on-surface font-bold">D</span><span class="text-outline-variant mr-1">Mismatch</span>
+                  <span class="px-1.5 py-0.5 rounded bg-surface-container text-on-surface font-bold">C</span><span class="text-outline-variant mr-1">Clarify</span>
+                  <span class="px-1.5 py-0.5 rounded bg-surface-container text-on-surface font-bold">E</span><span class="text-outline-variant">Escalate</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Document Tabs Switcher (D1 to D10) -->
+            <div class="flex items-center justify-between gap-space-sm pt-space-xs border-t border-surface-container">
+              <div id="workspace-doc-tabs" class="flex items-center gap-1.5 overflow-x-auto py-1 scrollbar-thin flex-1 justify-start">
+                <!-- Dynamically rendered by app.js -->
+              </div>
+            </div>
+          </div>
+
+          <!-- SPLIT COMPARISON VIEW (Dual Canvas) -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-space-lg mb-space-xl">
+            <!-- LEFT PANE: Submitted Document Scan -->
+            <div class="bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden flex flex-col border border-outline-variant/40">
+              <div class="bg-surface-container-low px-space-md py-space-sm flex items-center justify-between border-b border-surface-container">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-secondary text-[20px]">picture_as_pdf</span>
+                  <div>
+                    <div class="font-headline-sm text-headline-sm text-primary flex items-center gap-2 font-bold">
+                      Submitted Evidentiary Scan
+                      <span class="font-code-sm text-code-sm text-on-surface-variant font-normal">Page 1 / 2</span>
+                    </div>
+                    <p class="font-label-sm text-label-sm text-outline">Uploaded on 14 Oct 2026 · SHA-256 Verified</p>
+                  </div>
+                </div>
+                <!-- Scan Controls -->
+                <div class="flex items-center gap-2">
+                  <div class="flex items-center bg-surface-container rounded px-1.5 py-0.5">
+                    <button class="p-1 text-on-surface hover:text-secondary" title="Zoom Out" onclick="window.ValidexApp.zoomOut()"><span class="material-symbols-outlined text-[16px]">zoom_out</span></button>
+                    <span id="workspace-zoom-pct" class="font-code-sm text-code-sm px-1.5 text-on-surface font-semibold">100%</span>
+                    <button class="p-1 text-on-surface hover:text-secondary" title="Zoom In" onclick="window.ValidexApp.zoomIn()"><span class="material-symbols-outlined text-[16px]">zoom_in</span></button>
+                    <button class="p-1 text-on-surface hover:text-secondary ml-1" title="Rotate" onclick="window.ValidexApp.rotateCanvas()"><span class="material-symbols-outlined text-[16px]">rotate_right</span></button>
+                  </div>
+                  <span class="px-2 py-0.5 rounded bg-surface-container-high text-on-surface-variant font-code-sm text-code-sm flex items-center gap-1 font-semibold">
+                    <span class="material-symbols-outlined text-[14px] text-secondary">lock</span>
+                    Vault Replica
+                  </span>
+                </div>
+              </div>
+              <!-- High-Fidelity Certificate Scan Canvas -->
+              <div class="p-space-lg bg-surface-container-low/40 flex-1 overflow-y-auto min-h-[640px]">
+                <div id="workspace-scan-content" class="transition-transform duration-200">
+                  <!-- Dynamically rendered by app.js -->
+                </div>
+              </div>
+            </div>
+
+            <!-- RIGHT PANE: Official Central Registry Gateway -->
+            <div class="bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden flex flex-col border border-outline-variant/40">
+              <div class="bg-surface-container-low px-space-md py-space-sm flex items-center justify-between border-b border-surface-container">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-secondary text-[20px]">database</span>
+                  <div>
+                    <div class="font-headline-sm text-headline-sm text-primary flex items-center gap-2 font-bold">
+                      <span id="workspace-gateway-title">Official Record (NBA Registry)</span>
+                      <span class="px-2 py-0.5 rounded bg-secondary-fixed text-on-secondary-fixed-variant font-code-sm text-code-sm font-semibold">
+                        API Setu Live Gateway
+                      </span>
+                    </div>
+                    <p id="workspace-gateway-status" class="font-label-sm text-label-sm text-outline">Queried: 28 Oct 2026, 14:02:18 IST · Status: 200 OK (Authoritative)</p>
+                  </div>
+                </div>
+                <button class="px-2.5 py-1 rounded bg-surface-container text-on-surface font-body-sm text-body-sm hover:bg-surface-container-high transition-colors flex items-center gap-1 border border-outline-variant/30 font-semibold" onclick="alert('Authoritative statutory endpoint re-queried. SHA hash verified.')">
+                  <span class="material-symbols-outlined text-[16px]">refresh</span>
+                  Re-query
+                </button>
+              </div>
+              <div id="workspace-registry-content" class="p-space-lg flex-1 overflow-y-auto space-y-space-md bg-surface-container-low/20 min-h-[640px]">
+                <!-- Dynamically rendered by app.js -->
+              </div>
+            </div>
+          </div>
+
+          <!-- FIELD-BY-FIELD EVIDENTIARY RECONCILIATION TABLE -->
+          <div class="bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden mb-space-xl border border-outline-variant/40">
+            <div class="px-space-lg py-space-md bg-surface-container-low flex items-center justify-between border-b border-surface-container">
+              <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary text-[20px]">table_rows</span>
+                <h3 class="font-headline-md text-headline-md text-primary font-bold">Field-by-Field Evidentiary Reconciliation</h3>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="font-code-sm text-code-sm text-on-surface-variant font-medium">Machine Cross-Correlation</span>
+                <span class="font-code-sm text-code-sm px-2 py-0.5 rounded bg-error text-on-error font-bold">Human Adjudication Required</span>
+              </div>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left font-body-md text-body-md border-collapse">
+                <thead>
+                  <tr class="bg-surface-container-high text-on-surface-variant font-label-md text-label-md uppercase tracking-wider border-b border-surface-container">
+                    <th class="py-2.5 px-space-md">Field Name</th>
+                    <th class="py-2.5 px-space-md">Submitted Value</th>
+                    <th class="py-2.5 px-space-md">Official Registry Value</th>
+                    <th class="py-2.5 px-space-md">Match Type</th>
+                    <th class="py-2.5 px-space-md text-center">Confidence</th>
+                    <th class="py-2.5 px-space-md">Evidentiary Explanation</th>
+                    <th class="py-2.5 px-space-md text-right">Officer Action</th>
+                  </tr>
+                </thead>
+                <tbody id="workspace-recon-tbody" class="divide-y divide-surface-container text-on-surface">
+                  <!-- Dynamically rendered by app.js -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- FORENSICS & MACHINE FIELD AGREEMENT BREAKDOWN -->
+          <div id="workspace-forensics-container" class="grid grid-cols-1 md:grid-cols-12 gap-space-lg mb-space-xl">
+            <!-- Dynamically rendered by app.js -->
+          </div>
+
+          <!-- STICKY BOTTOM ADJUDICATION ACTION BAR -->
+          <div class="fixed bottom-0 left-[248px] right-0 z-40 bg-surface-container-lowest shadow-2xl px-space-xl py-space-sm flex flex-wrap items-center justify-between gap-space-md border-t border-outline-variant/40">
+            <div class="flex items-center gap-space-sm max-w-xl">
+              <span class="material-symbols-outlined text-secondary text-[22px] shrink-0">verified_user</span>
+              <p class="font-body-sm text-body-sm text-on-surface-variant leading-snug">
+                <strong class="text-primary">Human-in-the-Loop Adjudication:</strong> Automated rule-engine outputs are purely advisory. Any committed determination is immutably anchored to officer credentials <span class="font-code-sm text-code-sm text-primary font-bold">AK-9921</span> under AICTE Act 1987.
+              </p>
+            </div>
+            <div class="flex items-center gap-space-sm">
+              <button class="px-3 py-1.5 rounded bg-surface-container text-on-surface font-body-md-medium text-body-md-medium hover:bg-surface-container-high transition-colors font-semibold border border-outline-variant/30" onclick="window.ValidexApp.acceptClaimConsistent()">
+                Accept as Consistent (A)
+              </button>
+              <button class="px-3 py-1.5 rounded bg-surface-container-low text-secondary font-body-md-medium text-body-md-medium hover:bg-surface-container transition-colors font-semibold border border-outline-variant/30" onclick="window.ValidexApp.requestClarificationPrompt()">
+                Request Clarification (C)
+              </button>
+              <button class="px-3 py-1.5 rounded bg-surface-container-low text-on-surface font-body-md-medium text-body-md-medium hover:bg-surface-container transition-colors font-semibold border border-outline-variant/30" onclick="window.ValidexApp.escalateToSAC()">
+                Escalate to Senior Officer (E)
+              </button>
+              <button class="px-4 py-1.5 rounded bg-error text-on-error font-body-md-medium text-body-md-medium font-bold hover:bg-[#912018] shadow-sm flex items-center gap-1.5" onclick="window.ValidexApp.openAdjudicationModal('Accreditation Programme Concordance')">
+                <span class="material-symbols-outlined text-[18px]">gavel</span>
+                Confirm Mismatch & Record (D)
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- VIEW 4: APPLICATION OVERVIEW (DOCKET DETAIL)                              -->
+        <!-- ========================================================================= -->
+        <div id="view-overview" class="hidden flex flex-col w-full">
+          <!-- Case Docket Identification Header -->
+          <div class="relative bg-surface-container-lowest rounded-xl p-space-lg shadow-sm mb-space-md overflow-hidden border border-outline-variant/40">
+            <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-on-tertiary-container via-secondary to-primary-container"></div>
+            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-space-md pt-space-xs">
+              <div class="flex flex-col gap-space-2xs min-w-0">
+                <div class="flex flex-wrap items-center gap-space-xs">
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-secondary/10 font-code-sm text-code-sm text-secondary font-bold">
+                    <span class="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse"></span>
+                    <span id="overview-app-id">APP-2026-EOA-00417</span>
+                  </span>
+                  <span id="overview-app-status-badge" class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-secondary-container/20 text-on-secondary-container font-label-md text-label-md font-bold">
+                    Under review
+                  </span>
+                  <span class="font-code-sm text-code-sm text-on-surface-variant font-medium">Tier-2 Institutional Casework</span>
+                </div>
+                <h1 id="overview-app-name" class="font-headline-lg text-headline-lg text-primary tracking-tight font-bold truncate">
+                  Sri Vidyasagar Institute of Technology
+                </h1>
+                <div class="flex flex-wrap items-center gap-x-2 gap-y-1 font-body-sm text-body-sm text-on-surface-variant">
+                  <span id="overview-app-loc" class="flex items-center gap-1 text-on-surface font-body-md-medium font-semibold">
+                    <span class="material-symbols-outlined text-[15px] text-secondary">location_on</span>Coimbatore, Tamil Nadu
+                  </span>
+                  <span>•</span>
+                  <span id="overview-app-type">Extension of Approval: Existing Institution</span>
+                  <span>•</span>
+                  <span class="font-code-sm text-code-sm text-primary font-bold">AY 2026-27</span>
+                  <span>•</span>
+                  <span id="overview-app-date" class="text-outline">Submitted 21 Oct 2026, 14:32 IST</span>
+                </div>
+              </div>
+              <!-- Action Cluster -->
+              <div class="flex flex-wrap items-center gap-space-xs shrink-0">
+                <button class="inline-flex items-center gap-1.5 h-8 px-space-md bg-secondary text-on-secondary hover:bg-on-secondary-container rounded font-label-md text-label-md font-bold shadow-sm transition-colors" type="button" onclick="window.ValidexApp.navigateTo('workspace')">
+                  <span class="material-symbols-outlined text-[16px]">open_in_new</span>
+                  Open reviewer workspace
+                </button>
+                <button class="inline-flex items-center gap-1.5 h-8 px-space-md bg-surface-container hover:bg-surface-container-high text-secondary rounded font-label-md text-label-md font-semibold transition-colors border border-outline-variant/30" type="button" onclick="window.ValidexApp.requestClarificationPrompt()">
+                  <span class="material-symbols-outlined text-[16px]">contact_support</span>
+                  Request clarification
+                </button>
+                <button class="inline-flex items-center gap-1.5 h-8 px-space-md bg-surface-container-high hover:bg-surface-dim text-on-surface-variant rounded font-label-md text-label-md font-semibold transition-colors border border-outline-variant/30" type="button" onclick="window.ValidexApp.openAdjudicationModal('Dossier Final Adjudication')">
+                  <span class="material-symbols-outlined text-[16px] text-outline">lock</span>
+                  Record decision
+                </button>
+              </div>
+            </div>
+
+            <!-- Statutory Notice -->
+            <div class="mt-space-md flex items-center justify-between gap-space-md p-space-sm rounded bg-tertiary-fixed text-on-tertiary-fixed border border-tertiary-fixed-dim/40">
+              <div class="flex items-center gap-space-sm min-w-0">
+                <span class="material-symbols-outlined text-[18px] text-on-tertiary-container shrink-0">verified</span>
+                <p class="font-label-sm text-label-sm leading-normal">
+                  <span class="font-bold uppercase tracking-wider text-on-tertiary-container">Statutory Notice:</span> AI findings are advisory and evidence-linked. Every final or adverse adjudicative decision is made and recorded by an authorised human reviewer under AICTE Regulations 2026.
+                </p>
+              </div>
+              <span class="font-code-sm text-code-sm uppercase tracking-widest text-on-tertiary-fixed-variant shrink-0 font-bold hidden md:inline">
+                REF § 4.2(b) APH
+              </span>
+            </div>
+          </div>
+
+          <!-- Five Summary Metric Cards -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-space-md mb-space-lg">
+            <div class="bg-surface-container-lowest p-space-md rounded-xl shadow-sm border border-outline-variant/40 flex flex-col justify-between">
+              <div class="flex items-center justify-between text-on-surface-variant mb-space-xs font-semibold">
+                <span class="font-label-sm text-label-sm uppercase tracking-wider">Document Checklist</span>
+                <span class="material-symbols-outlined text-[18px] text-secondary">fact_check</span>
+              </div>
+              <div>
+                <div class="flex items-baseline gap-1.5">
+                  <span class="font-headline-lg text-headline-lg font-bold text-on-surface">10</span>
+                  <span class="font-body-md text-body-md text-outline">/ 10 received</span>
+                </div>
+                <div class="flex items-center gap-2 mt-space-2xs font-code-sm text-code-sm">
+                  <span class="text-tertiary-container font-medium">1 expired</span>
+                  <span class="text-outline-variant">•</span>
+                  <span class="text-outline">0 missing</span>
+                </div>
+              </div>
+              <div class="w-full bg-surface-container-high h-1.5 rounded-full mt-3 overflow-hidden">
+                <div class="bg-secondary h-full rounded-full" style="width: 100%;"></div>
+              </div>
+            </div>
+            <div class="bg-surface-container-lowest p-space-md rounded-xl shadow-sm border border-outline-variant/40 flex flex-col justify-between">
+              <div class="flex items-center justify-between text-on-surface-variant mb-space-xs font-semibold">
+                <span class="font-label-sm text-label-sm uppercase tracking-wider">Consistency</span>
+                <span class="material-symbols-outlined text-[18px] text-on-tertiary-container">tune</span>
+              </div>
+              <div>
+                <div class="flex items-baseline gap-1.5">
+                  <span class="font-headline-lg text-headline-lg font-bold text-on-tertiary-container">3</span>
+                  <span class="font-body-md text-body-md text-outline">inconsistencies</span>
+                </div>
+                <p class="font-label-sm text-label-sm text-on-surface-variant mt-space-2xs truncate font-medium">
+                  Intake (+60), Faculty (+6), Name
+                </p>
+              </div>
+              <div class="w-full bg-surface-container-high h-1.5 rounded-full mt-3 overflow-hidden">
+                <div class="bg-on-tertiary-container h-full rounded-full" style="width: 70%;"></div>
+              </div>
+            </div>
+            <div class="bg-surface-container-lowest p-space-md rounded-xl shadow-sm border border-outline-variant/40 flex flex-col justify-between">
+              <div class="flex items-center justify-between text-on-surface-variant mb-space-xs font-semibold">
+                <span class="font-label-sm text-label-sm uppercase tracking-wider">Anomaly Signals</span>
+                <span class="material-symbols-outlined text-[18px] text-error">warning</span>
+              </div>
+              <div>
+                <div class="flex items-baseline gap-1.5">
+                  <span class="font-headline-lg text-headline-lg font-bold text-error">6</span>
+                  <span class="font-body-sm text-body-sm text-outline">indicators</span>
+                </div>
+                <div class="flex items-center gap-1.5 mt-space-2xs font-code-sm text-code-sm">
+                  <span class="text-error font-bold">1 Strong</span>
+                  <span class="text-outline-variant">•</span>
+                  <span class="text-on-tertiary-container font-semibold">3 Mod</span>
+                  <span class="text-outline-variant">•</span>
+                  <span class="text-outline">2 Wk</span>
+                </div>
+              </div>
+              <div class="w-full bg-surface-container-high h-1.5 rounded-full mt-3 overflow-hidden flex">
+                <div class="bg-error h-full" style="width: 25%;"></div>
+                <div class="bg-on-tertiary-container h-full" style="width: 50%;"></div>
+                <div class="bg-outline h-full" style="width: 25%;"></div>
+              </div>
+            </div>
+            <div class="bg-surface-container-lowest p-space-md rounded-xl shadow-sm border border-outline-variant/40 flex flex-col justify-between">
+              <div class="flex items-center justify-between text-on-surface-variant mb-space-xs font-semibold">
+                <span class="font-label-sm text-label-sm uppercase tracking-wider">Source Status</span>
+                <span class="material-symbols-outlined text-[18px] text-secondary">assured_workload</span>
+              </div>
+              <div>
+                <div class="flex items-baseline gap-1.5">
+                  <span class="font-headline-lg text-headline-lg font-bold text-on-surface">3/9</span>
+                  <span class="font-body-sm text-body-sm text-outline">Verified External</span>
+                </div>
+                <div class="flex w-full h-2 rounded-full overflow-hidden mt-space-sm gap-0.5 bg-surface-container-high">
+                  <div class="bg-secondary flex-1" title="3 Verified"></div>
+                  <div class="bg-error w-3" title="1 Mismatch"></div>
+                  <div class="bg-on-tertiary-container w-3" title="1 Expired"></div>
+                  <div class="bg-secondary-container w-3" title="1 Pending"></div>
+                  <div class="bg-outline-variant w-3" title="1 Unavailable"></div>
+                  <div class="bg-primary-container w-4" title="2 Manual"></div>
+                </div>
+              </div>
+              <p class="font-code-sm text-code-sm text-outline mt-2 truncate">
+                3 Ver • 1 Mis • 1 Exp • 2 Man
+              </p>
+            </div>
+            <div class="bg-surface-container-lowest p-space-md rounded-xl shadow-sm border border-outline-variant/40 flex flex-col justify-between">
+              <div class="flex items-center justify-between text-on-surface-variant mb-space-xs font-semibold">
+                <span class="font-label-sm text-label-sm uppercase tracking-wider">Infra Compliance</span>
+                <span class="material-symbols-outlined text-[18px] text-error">domain_verification</span>
+              </div>
+              <div>
+                <div class="flex items-baseline gap-1.5">
+                  <span class="font-headline-lg text-headline-lg font-bold text-error">2</span>
+                  <span class="font-body-sm text-body-sm text-outline">discrepancies</span>
+                </div>
+                <p class="font-label-sm text-label-sm text-error mt-space-2xs truncate font-semibold">
+                  YOLO 38 vs 60 PCs · Plan 96 vs 120m²
+                </p>
+              </div>
+              <div class="inline-flex items-center gap-1 font-label-sm text-label-sm text-secondary mt-2 font-bold">
+                <span class="material-symbols-outlined text-[14px]">flag</span>
+                <span>Inspection recommended</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dual Column Layout -->
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-space-lg items-start">
+            <!-- Left 7 Cols: Document Checklist Table -->
+            <div class="lg:col-span-7 flex flex-col gap-space-lg">
+              <div class="bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden border border-outline-variant/40">
+                <div class="p-space-md bg-surface-container-low flex flex-col sm:flex-row sm:items-center justify-between gap-space-xs border-b border-surface-container">
+                  <div>
+                    <div class="flex items-center gap-2">
+                      <h2 class="font-headline-sm text-headline-sm text-primary font-bold">Document Checklist & Statutory Verification</h2>
+                      <span class="px-2 py-0.5 rounded bg-primary-container text-on-primary font-code-sm text-code-sm font-bold">APH 2026 Mandate</span>
+                    </div>
+                    <p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Primary evidentiary inventory submitted under Chapter II Appendix 1</p>
+                  </div>
+                </div>
+                <div class="overflow-x-auto">
+                  <table class="w-full text-left font-body-sm text-body-sm">
+                    <thead>
+                      <tr class="bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider border-b border-surface-container">
+                        <th class="py-2.5 px-3 font-semibold">Ref</th>
+                        <th class="py-2.5 px-3 font-semibold">Statutory Document</th>
+                        <th class="py-2.5 px-3 font-semibold">Verification State</th>
+                        <th class="py-2.5 px-3 font-semibold text-center">Anomaly Flag</th>
+                        <th class="py-2.5 px-3 font-semibold text-right">Evidence</th>
+                      </tr>
+                    </thead>
+                    <tbody id="overview-docs-tbody" class="text-on-surface">
+                      <!-- Populated dynamically by app.js -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right 5 Cols: Cross Check with AICTE Central Records & Casework Docket -->
+            <div class="lg:col-span-5 flex flex-col gap-space-lg">
+              <!-- AICTE Central Records -->
+              <div class="bg-surface-container-lowest rounded-xl shadow-sm p-space-md overflow-hidden relative border border-outline-variant/40">
+                <div class="flex items-center justify-between gap-space-sm mb-space-md">
+                  <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[20px] text-secondary">database</span>
+                    <h2 class="font-headline-sm text-headline-sm text-primary font-bold">AICTE Central Records Cross-Check</h2>
+                  </div>
+                  <span class="px-2 py-0.5 rounded bg-secondary-fixed text-on-secondary-fixed-variant font-code-sm text-code-sm font-bold">LIVE ADAPTER</span>
+                </div>
+                <div class="flex flex-col gap-space-sm">
+                  <div class="p-space-sm rounded bg-surface-container-low flex items-start justify-between border border-outline-variant/30">
+                    <div class="flex items-start gap-2">
+                      <span class="material-symbols-outlined text-[18px] text-secondary mt-0.5">check_circle</span>
+                      <div>
+                        <span class="font-label-sm text-label-sm uppercase tracking-wider text-outline block font-semibold">Previous Year EoA</span>
+                        <span class="font-body-md-medium text-body-md-medium text-on-surface font-semibold">EOA-2025-TN-0231</span>
+                        <div class="font-code-sm text-code-sm text-outline">Status: Valid / Unconditional Approval</div>
+                      </div>
+                    </div>
+                    <span class="px-2 py-0.5 rounded-full bg-surface-container text-secondary font-label-sm text-label-sm font-semibold">MATCH</span>
+                  </div>
+                  <div class="p-space-sm rounded bg-tertiary-fixed/30 flex items-start justify-between border border-tertiary-fixed">
+                    <div class="flex items-start gap-2">
+                      <span class="material-symbols-outlined text-[18px] text-on-tertiary-container mt-0.5">warning</span>
+                      <div>
+                        <span class="font-label-sm text-label-sm uppercase tracking-wider text-on-tertiary-fixed-variant block font-bold">Sanctioned Intake Capacity</span>
+                        <div class="flex items-center gap-2">
+                          <span class="font-body-md-medium text-body-md-medium text-on-surface font-bold">Applied: 540</span>
+                          <span class="text-outline">vs</span>
+                          <span class="font-body-md-medium text-body-md-medium text-on-surface font-bold">Approved: 480</span>
+                        </div>
+                        <div class="font-code-sm text-code-sm text-on-tertiary-container font-semibold">+60 incremental seats requested (Requires Division Review)</div>
+                      </div>
+                    </div>
+                    <span class="px-2 py-0.5 rounded-full bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-label-sm font-bold">DELTA</span>
+                  </div>
+                  <div class="p-space-sm rounded bg-surface-container-low flex items-start justify-between border border-outline-variant/30">
+                    <div class="flex items-start gap-2">
+                      <span class="material-symbols-outlined text-[18px] text-secondary mt-0.5">payments</span>
+                      <div>
+                        <span class="font-label-sm text-label-sm uppercase tracking-wider text-outline block font-semibold">TER Fee Payment Reconciliation</span>
+                        <span class="font-body-md-medium text-body-md-medium text-on-surface font-semibold">AICTE-PG-2026-90214</span>
+                        <div class="font-code-sm text-code-sm text-secondary font-semibold">Received ₹2,50,000 · Bharatkosh Treasury Confirmed</div>
+                      </div>
+                    </div>
+                    <span class="px-2 py-0.5 rounded-full bg-surface-container text-secondary font-label-sm text-label-sm font-semibold">CLEARED</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Casework Administrative Docket -->
+              <div class="bg-surface-container-lowest rounded-xl shadow-sm p-space-md border border-outline-variant/40">
+                <h2 class="font-headline-sm text-headline-sm text-primary font-bold mb-space-sm flex items-center gap-2">
+                  <span class="material-symbols-outlined text-[20px] text-secondary">badge</span>
+                  Casework Administrative Docket
+                </h2>
+                <div class="grid grid-cols-2 gap-space-sm font-body-sm text-body-sm">
+                  <div class="p-space-sm rounded bg-surface-container-low border border-outline-variant/30">
+                    <span class="font-label-sm text-label-sm uppercase text-outline block font-semibold">Assigned Scrutiny Officer</span>
+                    <span class="font-body-md-medium text-body-md-medium text-on-surface font-semibold">Ananya Krishnan</span>
+                    <span class="font-code-sm text-code-sm text-secondary block font-semibold">ID: AK-9921 · Class I</span>
+                  </div>
+                  <div class="p-space-sm rounded bg-surface-container-low border border-outline-variant/30">
+                    <span class="font-label-sm text-label-sm uppercase text-outline block font-semibold">Statutory Deadline</span>
+                    <span class="font-body-md-medium text-body-md-medium text-error font-bold">15 Nov 2026</span>
+                    <span class="font-code-sm text-code-sm text-outline block">18 days remaining</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- VIEW 5: ALERTS & NOTIFICATIONS                                            -->
+        <!-- ========================================================================= -->
+        <div id="view-alerts" class="hidden flex flex-col w-full gap-space-md">
+          <div class="flex items-center justify-between pb-space-xs">
+            <div>
+              <h1 class="font-headline-lg text-headline-lg text-primary font-bold">Regulatory Alerts & Notifications</h1>
+              <p class="font-body-md text-body-md text-on-surface-variant">Real-time discrepancy triggers across regional technical institutes.</p>
+            </div>
+            <span class="px-3 py-1 rounded-full bg-error-container text-on-error-container font-code-sm text-code-sm font-bold">19 Active Alerts</span>
+          </div>
+          <div id="alerts-master-list" class="flex flex-col gap-space-sm">
+            <!-- Dynamically rendered by app.js -->
+          </div>
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- VIEW 6: AUDIT TRAIL                                                       -->
+        <!-- ========================================================================= -->
+        <div id="view-audit" class="hidden flex flex-col w-full gap-space-md">
+          <div class="flex items-center justify-between pb-space-xs">
+            <div>
+              <h1 class="font-headline-lg text-headline-lg text-primary font-bold">Immutable Statutory Audit Trail</h1>
+              <p class="font-body-md text-body-md text-on-surface-variant">Cryptographically signed chronological record of all officer actions and API transactions.</p>
+            </div>
+            <button class="h-8 px-space-md rounded bg-primary-container text-on-primary font-label-sm text-label-sm flex items-center gap-1 font-semibold" onclick="alert('Audit ledger cryptographically verified against SHA-256 block hash.')">
+              <span class="material-symbols-outlined text-[16px]">verified</span>
+              Verify Ledger Integrity
+            </button>
+          </div>
+          <div class="bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden border border-outline-variant/40">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left font-body-sm text-body-sm border-collapse">
+                <thead>
+                  <tr class="bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider border-b border-surface-container">
+                    <th class="py-3 px-space-md">Timestamp</th>
+                    <th class="py-3 px-space-md">Actor / Officer</th>
+                    <th class="py-3 px-space-md">Action</th>
+                    <th class="py-3 px-space-md">Docket</th>
+                    <th class="py-3 px-space-md">Adjudication / Details</th>
+                    <th class="py-3 px-space-md text-right">Ledger Hash</th>
+                  </tr>
+                </thead>
+                <tbody id="audit-trail-tbody" class="divide-y divide-surface-container text-on-surface">
+                  <!-- Dynamically rendered by app.js -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- VIEW 7: EVALUATION METRICS & TELEMETRY                                    -->
+        <!-- ========================================================================= -->
+        <div id="view-metrics" class="hidden flex flex-col w-full gap-space-lg">
+          <div>
+            <h1 class="font-headline-lg text-headline-lg text-primary font-bold">Evaluation Metrics & Queue Telemetry</h1>
+            <p class="font-body-md text-body-md text-on-surface-variant">Real-time statutory verification harness performance and regional throughput.</p>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-space-md">
+            <div class="p-space-md rounded bg-surface-container-lowest border border-outline-variant/40 shadow-sm">
+              <span class="font-label-sm text-label-sm uppercase text-outline font-semibold block">Light Queue Workers</span>
+              <span class="font-headline-xl text-headline-xl text-primary font-bold">8 / 8 Active</span>
+              <p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Average response: 2.8 seconds · API Setu</p>
+            </div>
+            <div class="p-space-md rounded bg-surface-container-lowest border border-outline-variant/40 shadow-sm">
+              <span class="font-label-sm text-label-sm uppercase text-outline font-semibold block">GPU Inference Cluster</span>
+              <span class="font-headline-xl text-headline-xl text-primary font-bold">4 Nvidia T4</span>
+              <p class="font-body-sm text-body-sm text-on-surface-variant mt-1">YOLOv8 Lab & ELA Forensic Model</p>
+            </div>
+            <div class="p-space-md rounded bg-surface-container-lowest border border-outline-variant/40 shadow-sm">
+              <span class="font-label-sm text-label-sm uppercase text-outline font-semibold block">Total Verifications Cycle</span>
+              <span class="font-headline-xl text-headline-xl text-[#146C43] font-bold">3,987</span>
+              <p class="font-body-sm text-body-sm text-on-surface-variant mt-1">71.4% Automatic clearance rate</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- VIEW 8: RULES & CHECKLISTS                                                -->
+        <!-- ========================================================================= -->
+        <div id="view-rules" class="hidden flex flex-col w-full gap-space-md">
+          <div>
+            <h1 class="font-headline-lg text-headline-lg text-primary font-bold">AICTE Statutory Rules & Checklists</h1>
+            <p class="font-body-md text-body-md text-on-surface-variant">Approval Process Handbook (APH 2026-27) regulatory clauses and norm thresholds.</p>
+          </div>
+          <div id="rules-master-list" class="grid grid-cols-1 gap-space-md">
+            <!-- Dynamically rendered by app.js -->
+          </div>
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- VIEW 9: ROLES & ACCESS                                                    -->
+        <!-- ========================================================================= -->
+        <div id="view-roles" class="hidden flex flex-col w-full gap-space-md">
+          <div>
+            <h1 class="font-headline-lg text-headline-lg text-primary font-bold">Regulatory Roles & Delegated Authority</h1>
+            <p class="font-body-md text-body-md text-on-surface-variant">Adjudicative hierarchies under the All India Council for Technical Education Act.</p>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-space-md">
+            <div class="p-space-lg rounded-xl bg-surface-container-lowest border-2 border-secondary shadow-md">
+              <span class="px-2 py-0.5 rounded bg-secondary-fixed text-on-secondary-fixed font-code-sm font-bold text-xs uppercase">ACTIVE ROLE</span>
+              <h3 class="font-headline-sm font-bold text-primary mt-2">Scrutiny Officer (Class I)</h3>
+              <p class="font-body-sm text-body-sm text-on-surface-variant mt-1">First-line regulatory adjudication, evidentiary comparison, and defect notice dispatch.</p>
+              <div class="mt-4 pt-3 border-t text-xs font-code-sm text-outline">Officer: Ananya Krishnan (AK-9921)</div>
+            </div>
+            <div class="p-space-lg rounded-xl bg-surface-container-lowest border border-outline-variant/40 shadow-sm">
+              <span class="px-2 py-0.5 rounded bg-surface-container font-code-sm font-semibold text-xs uppercase">SUPERVISORY</span>
+              <h3 class="font-headline-sm font-bold text-primary mt-2">Regional Director / SRO Bureau</h3>
+              <p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Final approval issuance, extension gazette notification, and surprise inspection sanction.</p>
+              <div class="mt-4 pt-3 border-t text-xs font-code-sm text-outline">Officer: Vikram Deshpande (VD-4412)</div>
+            </div>
+            <div class="p-space-lg rounded-xl bg-surface-container-lowest border border-outline-variant/40 shadow-sm">
+              <span class="px-2 py-0.5 rounded bg-surface-container font-code-sm font-semibold text-xs uppercase">APPELLATE</span>
+              <h3 class="font-headline-sm font-bold text-primary mt-2">Standing Appellate Committee</h3>
+              <p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Hears appeals against intake reduction or rejection of technical approval.</p>
+              <div class="mt-4 pt-3 border-t text-xs font-code-sm text-outline">Chairperson: Priyanka Sharma (PS-8891)</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- VIEW 10: COLLEGE PORTAL PERSPECTIVE                                       -->
+        <!-- ========================================================================= -->
+        <div id="view-college-portal" class="hidden flex flex-col w-full gap-space-md">
+          <div class="p-space-lg rounded-xl bg-surface-container-lowest border border-outline-variant/40 shadow-sm">
+            <span class="px-2 py-0.5 rounded bg-primary-container text-on-primary font-code-sm font-bold text-xs uppercase">INSTITUTION PORTAL PERSPECTIVE</span>
+            <h1 id="college-portal-inst-name" class="font-headline-lg text-headline-lg text-primary font-bold mt-2">Sri Vidyasagar Institute of Technology</h1>
+            <p class="font-body-md text-body-md text-on-surface-variant">AICTE Extension of Approval (EoA) Application Submission Portal</p>
+            <div class="flex items-center gap-3 mt-3 font-code-sm text-code-sm">
+              <span class="px-2 py-1 rounded bg-secondary-fixed text-on-secondary-fixed font-bold">Application: <span id="college-portal-app-id">APP-2026-EOA-00417</span></span>
+              <span class="px-2 py-1 rounded bg-surface-container text-primary font-semibold">Status: <span id="college-portal-status">Under review</span></span>
+            </div>
+          </div>
+          <div class="p-space-md rounded bg-surface-container-low border border-outline-variant/30">
+            <h3 class="font-headline-sm font-bold text-primary">Pending Regulatory Clarifications (1)</h3>
+            <p class="font-body-sm text-body-sm text-on-surface-variant mt-1">AICTE Western Scrutiny Bureau has requested clarification on the State Govt NOC renewal receipt.</p>
+            <div class="mt-3 flex items-center gap-2">
+              <button class="px-3 py-1.5 rounded bg-secondary text-white font-label-md font-semibold" onclick="alert('File upload dialog opened for institutional reply.')">Upload Clarification Document</button>
+              <button class="px-3 py-1.5 rounded bg-surface-container text-primary font-label-md font-semibold" onclick="window.ValidexApp.navigateTo('overview')">Return to Reviewer View</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- ======================== DECISION RECORDING MODAL DIALOG ======================== -->
+  <div id="adjudication-dialog" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-primary/40 backdrop-blur-sm p-4">
+    <div class="bg-surface-container-lowest rounded-xl max-w-lg w-full shadow-2xl p-space-lg flex flex-col gap-space-md border border-outline-variant/40">
+      <div class="flex items-center justify-between pb-space-xs border-b border-surface-container">
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-error text-[24px]">gavel</span>
+          <h3 class="font-headline-md text-headline-md text-primary font-bold">Record Statutory Determination</h3>
+        </div>
+        <button class="text-outline hover:text-on-surface p-1" onclick="window.ValidexApp.closeAdjudicationModal()">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+
+      <div class="p-space-sm rounded bg-error-container/30 text-on-error-container font-body-sm text-body-sm border border-error-container">
+        <strong>Document Under Scrutiny:</strong> You are recording a formal statutory determination for <span id="modal-target-field" class="font-bold">Accreditation Concordance</span> under AICTE Regulations 2026.
+      </div>
+
+      <div class="space-y-space-sm">
+        <div>
+          <label class="font-label-sm text-label-sm uppercase text-outline block mb-1 font-semibold">Determination Category</label>
+          <select id="modal-category-select" class="w-full h-8 px-2 rounded bg-surface-container-low text-on-surface font-body-md text-body-md border border-outline-variant/40 outline-none text-xs">
+            <option value="Mismatch">Mismatch: Statutory Record Discrepancy (Rule R-NBA-002)</option>
+            <option value="Tampering">Document Inconsistency / Forensic Splicing Suspected</option>
+            <option value="Discontinuation">Programme Discontinuation / Intake Reduction Recommended</option>
+            <option value="Deficiency">Deficiency Notice Issuance (15 Days Hearing Window)</option>
+          </select>
+        </div>
+        <div>
+          <label class="font-label-sm text-label-sm uppercase text-outline block mb-1 font-semibold">Adjudication Rationale & Regulatory Order Note</label>
+          <textarea id="modal-order-notes" class="w-full p-2 rounded bg-surface-container-low text-on-surface font-body-md text-body-md resize-none border border-outline-variant/40 outline-none text-xs" placeholder="Provide detailed regulatory reasoning for notice issuance pursuant to Approval Process Handbook..." rows="4">Verified against NBA Central Registry via API Setu. Civil Engineering discipline is not registered as accredited for AY 2026-27. Deficiency memo issued under Rule § 4.2(b).</textarea>
+        </div>
+        <div class="p-2.5 rounded bg-surface-container font-code-sm text-code-sm text-on-surface-variant flex flex-col gap-1 border border-outline-variant/20">
+          <div class="flex items-center justify-between text-primary font-semibold">
+            <span>Reviewer Credentials</span>
+            <span>Ananya Krishnan (ID: AK-9921)</span>
+          </div>
+          <div class="flex items-center justify-between text-outline">
+            <span>Timestamp</span>
+            <span>28 Oct 2026, 14:15 IST (System Locked)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-space-sm pt-space-xs border-t border-surface-container">
+        <button class="px-3 py-1.5 rounded bg-surface-container text-on-surface font-body-md-medium text-body-md-medium hover:bg-surface-container-high transition-colors font-semibold" onclick="window.ValidexApp.closeAdjudicationModal()">
+          Cancel
+        </button>
+        <button class="px-4 py-1.5 rounded bg-primary text-on-primary font-body-md-medium text-body-md-medium font-bold hover:bg-primary-container flex items-center gap-1.5 shadow-sm" onclick="window.ValidexApp.commitAdjudication()">
+          <span class="material-symbols-outlined text-[16px]">lock</span>
+          Commit to Immutable Ledger
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCRIPTS -->
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
+
