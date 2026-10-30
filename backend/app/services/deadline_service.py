@@ -28,10 +28,10 @@ def process_due_deadlines(db: Session, now: datetime | None = None) -> dict[str,
         recipient = d.assigned_to or d.application.institution_id
         reminder_at = due - timedelta(hours=d.remind_before_hours)
         if not d.reminder_sent and now >= reminder_at:
+            d.reminder_sent = True  # persist state before alerting so overlapping sweeps do not repeat it
             _notify(db, d, recipient, f"Upcoming deadline: {d.title}",
                     f"{d.title} for application {d.application.application_number} is due {due.isoformat()}.",
                     "DEADLINE_REMINDER")
-            d.reminder_sent = True
             reminders += 1
         overdue_hours = (now - due).total_seconds() / 3600
         target_level = max(0, int(overdue_hours // d.escalate_after_hours)) if overdue_hours >= 0 else 0

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'validex-shell-v1';
+const CACHE_NAME = 'tracenza-shell-v1';
 const APP_SHELL = ['/index.html', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png'];
 
 self.addEventListener('install', (event) => {
@@ -7,7 +7,7 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(caches.keys().then((keys) => Promise.all(
-    keys.filter((key) => key.startsWith('validex-shell-') && key !== CACHE_NAME).map((key) => caches.delete(key)),
+    keys.filter((key) => key.startsWith('validex-shell-') || key.startsWith('tracenza-shell-') && key !== CACHE_NAME).map((key) => caches.delete(key)),
   )).then(() => self.clients.claim()));
 });
 

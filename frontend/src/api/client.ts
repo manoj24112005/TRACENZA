@@ -26,6 +26,9 @@ import type {
   DeadlineItem,
   DeadlineKind,
   WorkflowTransitionItem,
+  PipelineView,
+  PendencyOverview,
+  RadarView,
 } from '../types';
 
 const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || '/api' });
@@ -177,11 +180,17 @@ export const notificationsApi = {
   acknowledge: async (id: string): Promise<NotificationItem> => (await api.post(`/notifications/${id}/acknowledge`)).data,
 };
 
+export const tracenzaApi = {
+  pipeline: async (appId: string): Promise<PipelineView> => (await api.get(`/tracenza/pipeline/${appId}`)).data,
+  overview: async (): Promise<PendencyOverview> => (await api.get('/tracenza/overview')).data,
+  radar: async (appId: string): Promise<RadarView> => (await api.get(`/tracenza/radar/${appId}`)).data,
+};
+
 export const deadlinesApi = {
   list: async (): Promise<DeadlineItem[]> => (await api.get('/deadlines')).data,
   create: async (data: { application_id: string; kind: DeadlineKind; title: string; description?: string; due_at: string; remind_before_hours: number; escalate_after_hours: number }) =>
     (await api.post('/deadlines', data)).data as DeadlineItem,
-  complete: async (id: string) => (await api.patch(`/deadlines/${id}`, { status: 'completed', reason: 'Marked complete in Validex' })).data as DeadlineItem,
+  complete: async (id: string) => (await api.patch(`/deadlines/${id}`, { status: 'completed', reason: 'Marked complete in Tracenza' })).data as DeadlineItem,
   processDue: async (): Promise<{ reminders_created: number; escalations_created: number }> => (await api.post('/deadlines/process-due')).data,
 };
 

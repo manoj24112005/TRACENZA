@@ -15,6 +15,8 @@ import { NoticesPage } from './pages/NoticesPage';
 import { PortalApplicationPage } from './pages/PortalApplicationPage';
 import { DeadlinesPage } from './pages/DeadlinesPage';
 import { WorkflowPage } from './pages/WorkflowPage';
+import { PipelinePage } from './pages/PipelinePage';
+import { AlertsPage } from './pages/AlertsPage';
 import type { UserRole } from './types';
 
 const Protected: React.FC<{ children: React.ReactNode; roles?: UserRole[] }> = ({ children, roles }) => {
@@ -51,6 +53,8 @@ export const App: React.FC = () => (
           <Route path="applications/:id" element={<ApplicationRoute />} />
           <Route path="notices" element={<Protected roles={['institution']}><NoticesPage /></Protected>} />
           <Route path="deadlines" element={<DeadlinesPage />} />
+          <Route path="pipeline" element={<PipelinePage />} />
+          <Route path="alerts" element={<AlertsPage />} />
           <Route path="compliance" element={<CompliancePage />} />
           <Route path="infrastructure" element={<Protected roles={OFFICIALS}><InfrastructurePage /></Protected>} />
           <Route path="audit" element={<Protected roles={OFFICIALS}><AuditPage /></Protected>} />

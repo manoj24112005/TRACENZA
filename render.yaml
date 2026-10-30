@@ -2,15 +2,19 @@
 # authorized authority providers, and the matching frontend origin before public operation.
 services:
   - type: web
-    name: validex-appar-reconx-api
+    name: tracenza-api
     runtime: docker
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
     plan: free
     region: singapore
     envVars:
+      # "demo" seeds the synthetic demo accounts (public default passwords!). Use "production" for real
+      # use: no demo accounts, first admin comes from BOOTSTRAP_ADMIN_EMAIL / BOOTSTRAP_ADMIN_PASSWORD.
       - key: ENVIRONMENT
-        value: production
+        value: demo
+      - key: FRONTEND_ORIGINS
+        sync: false   # e.g. https://tracenza.vercel.app (your Vercel URL, no trailing slash)
       - key: SECRET_KEY
         generateValue: true
       - key: USE_MINIO
@@ -23,12 +27,12 @@ services:
         value: Portal Administrator
       - key: DATABASE_URL
         fromDatabase:
-          name: validex-appar-reconx-db
+          name: tracenza-db
           property: connectionString
 
 databases:
-  - name: validex-appar-reconx-db
-    databaseName: aicte_validation
-    user: aicte
+  - name: tracenza-db
+    databaseName: tracenza
+    user: tracenza
     plan: free
     region: singapore

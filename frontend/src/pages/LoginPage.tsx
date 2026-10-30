@@ -68,8 +68,8 @@ export const LoginPage: React.FC = () => {
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/10 ring-1 ring-white/25"><Cpu className="h-5 w-5" /></div>
             <div>
-              <h1 className="text-lg font-bold leading-tight tracking-wide">VALIDEX <span className="text-amber-300">·</span> SIH26262</h1>
-              <p className="text-xs text-blue-100">AICTE application workflow prototype</p>
+              <h1 className="text-lg font-bold leading-tight tracking-wide">TRACENZA <span className="text-amber-300">·</span> SIH26262</h1>
+              <p className="text-xs text-blue-100">Approval workflow, obligations & compliance monitoring</p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
@@ -84,7 +84,7 @@ export const LoginPage: React.FC = () => {
         <section className="p-5 sm:p-8 lg:p-10">
           <div className="mb-6 border-b border-slate-200 pb-5">
             <p className="mb-2 text-[11px] font-bold uppercase tracking-[.16em] text-[#a35d13]">01 <span className="mx-1 text-slate-300">/</span> Workspace access</p>
-            <h2 className="text-2xl font-bold tracking-tight text-[#173b5c]">Sign in to Validex</h2>
+            <h2 className="text-2xl font-bold tracking-tight text-[#173b5c]">Sign in to Tracenza</h2>
             <p className="mt-1.5 text-sm leading-6 text-slate-600">Use your institution or officer account to continue to the approval workspace.</p>
           </div>
 
@@ -142,7 +142,7 @@ export const LoginPage: React.FC = () => {
         </aside>
         </div>
         <footer className="border-t border-slate-200 bg-white px-5 py-3 text-center text-[10px] leading-5 text-slate-500 sm:px-8 sm:text-left">
-          Validex is an independent SIH26262 portal model and is not an official AICTE service. Evaluation profiles use synthetic records. On iPhone or iPad, use Share → Add to Home Screen.
+          Tracenza is an independent SIH26262 prototype built on the Validex validation platform and is not an official AICTE service. Evaluation profiles use synthetic records. On iPhone or iPad, use Share → Add to Home Screen.
         </footer>
       </div>
     </main>

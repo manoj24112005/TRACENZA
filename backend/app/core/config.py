@@ -14,12 +14,12 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
     # App
-    APP_NAME: str = "Validex"
+    APP_NAME: str = "Tracenza"
     ENVIRONMENT: str = "development"
     DEBUG: bool = False
     CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173"
     # Deployed frontend(s); always allowed in addition to CORS_ORIGINS
-    FRONTEND_ORIGINS: str = "https://validex-two.vercel.app"
+    FRONTEND_ORIGINS: str = ""
 
     # Database (defaults to local sqlite for standalone run, overridden by .env in Docker)
     DATABASE_URL: str = "sqlite:///./validex.db"
@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     # Redis / Celery. When USE_CELERY is false, heavy jobs run as FastAPI background tasks.
     REDIS_URL: str = "redis://localhost:6379/0"
     USE_CELERY: bool = False
+    # Without Celery, run the deadline/escalation sweep inside the API process every N seconds (0 = off)
+    LOCAL_SCHEDULER_SECONDS: int = 300
     # Process uploads synchronously inside the request (tests, seeding). Otherwise background task.
     INLINE_PROCESSING: bool = False
     # Background documents processed at once (1 keeps memory low on 512 MB hosts)
@@ -80,7 +82,7 @@ class Settings(BaseSettings):
     SMTP_PORT: int = 587
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
-    SMTP_FROM: str = "noreply@validex.local"
+    SMTP_FROM: str = "noreply@tracenza.local"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

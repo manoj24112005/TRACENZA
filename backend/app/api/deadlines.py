@@ -5,10 +5,12 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.dependencies import get_application_for_user, get_current_user, require_official
+from app.models.application import Application
 from app.models.deadline import Deadline, DeadlineStatus
 from app.models.user import User, UserRole
 from app.schemas.deadline import DeadlineCreate, DeadlineResponse, DeadlineStatusUpdate
@@ -25,6 +27,9 @@ def list_deadlines(db: Annotated[Session, Depends(get_db)], user: Annotated[User
     q = db.query(Deadline).join(Deadline.application)
     if user.role == UserRole.INSTITUTION:
         q = q.filter(Deadline.application.has(institution_id=user.id))
+    elif user.role in (UserRole.SCRUTINY, UserRole.EXPERT, UserRole.APPROVER):
+        # Same reviewer-assignment scope as the application list
+        q = q.filter(or_(Application.assigned_reviewer_id.is_(None), Application.assigned_reviewer_id == user.id))
     if status:
         q = q.filter(Deadline.status == status)
     if kind:
@@ -61,8 +66,9 @@ def update_deadline(deadline_id: UUID, data: DeadlineStatusUpdate, db: Annotated
     d = db.query(Deadline).filter(Deadline.id == deadline_id).first()
     if not d:
         raise HTTPException(status_code=404, detail="Deadline not found")
-    if user.role == UserRole.INSTITUTION and d.application.institution_id != user.id:
-        raise HTTPException(status_code=404, detail="Deadline not found")
+    get_application_for_user(db, d.application_id, user)  # same object-level access as the application
+    if user.role == UserRole.INSTITUTION and d.kind.value not in ("undertaking", "lease_expiry", "document_expiry"):
+        raise HTTPException(status_code=403, detail="Institutions can update only their undertaking and expiry records")
     if user.role == UserRole.INSTITUTION and data.status == DeadlineStatus.CANCELLED:
         raise HTTPException(status_code=403, detail="Institutions cannot cancel deadlines")
     d.status = data.status

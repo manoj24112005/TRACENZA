@@ -476,3 +476,21 @@ export interface GraphView {
   edges: { from: string; to: string; kind: string; application?: string }[];
   links: { kind: string; finding: string; evidence: string; cypher?: string; masked?: string; serial?: string }[];
 }
+
+export interface PipelineStage { key: string; label: string; role: string; state: 'done' | 'current' | 'pending'; entered_at: string | null }
+export interface PipelineView {
+  application_id: string; application_number: string; institution_name: string; status: ApplicationStatus;
+  returned_for_clarification: boolean; rejected: boolean; current_stage: number; stages: PipelineStage[];
+  hours_in_current_stage: number | null; human_decision_required: boolean; note: string;
+  pending_actions: { owner_role: string; action: string; due_at: string | null }[];
+}
+export interface PendencyOverview {
+  stages: { key: string; label: string; count: number; avg_age_hours: number | null }[];
+  ageing: { under_3_days: number; '3_to_7_days': number; '7_to_14_days': number; over_14_days: number };
+  bottleneck_stage: string | null; workload: { officer: string; open_applications: number }[];
+  deadlines: { open: number; overdue: number; due_within_7_days: number;
+    next: { id: string; title: string; kind: string; application_id: string; application_number: string | null; due_at: string; overdue: boolean; escalation_level: number }[] };
+  unacknowledged_alerts: number; open_applications: number; note: string; ageing_note: string;
+}
+export interface RadarNode { id: string; kind: string; label: string; sub: string; severity: 'info' | 'low' | 'medium' | 'high'; age_hours: number | null; owner_role?: string }
+export interface RadarView { application_id: string; nodes: RadarNode[]; edges: { from: string; to: string; label: string }[]; blocker_count: number; note: string }

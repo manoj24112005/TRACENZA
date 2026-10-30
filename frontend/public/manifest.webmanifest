@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "Validex Approval Workflow",
-  "short_name": "Validex",
-  "description": "Validex institutional approval workflow and compliance workspace.",
+  "name": "Tracenza Approval Workflow",
+  "short_name": "Tracenza",
+  "description": "Tracenza approval workflow, obligations and compliance workspace (SIH26262 prototype).",
   "lang": "en-IN",
   "start_url": "/",
   "scope": "/",

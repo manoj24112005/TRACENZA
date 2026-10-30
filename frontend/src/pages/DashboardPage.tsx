@@ -6,6 +6,7 @@ import { dashboardApi } from '../api/client';
 import type { DashboardStats, RiskDistributionItem, AlertItem, ActivityItem, Metrics } from '../types';
 import { Button, Card, Empty, SeverityIcon, fmtDate } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
+import { PendencyPanel } from '../components/PendencyPanel';
 
 const Stat: React.FC<{ label: string; value: React.ReactNode; hint?: string; icon: React.ElementType; tone: string }> = ({ label, value, hint, icon: Icon, tone }) => (
   <div className="glass-panel rounded-2xl p-4">
@@ -47,7 +48,7 @@ export const DashboardPage: React.FC = () => {
     const blob = await dashboardApi.exportReport();
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.href = url; link.download = 'validex-applications-report.csv'; link.click();
+    link.href = url; link.download = 'tracenza-applications-report.csv'; link.click();
     URL.revokeObjectURL(url);
   };
 
@@ -77,6 +78,8 @@ export const DashboardPage: React.FC = () => {
           <Stat label="Avg processing / doc" value={stats.avg_processing_seconds_per_document != null ? `${stats.avg_processing_seconds_per_document}s` : '—'} hint={`${stats.total_documents_processed} documents processed`} icon={Timer} tone="text-indigo-600" />
         </div>
       )}
+
+      <PendencyPanel />
 
       <div className="grid lg:grid-cols-3 gap-6">
         <Card title="Open alerts" className="lg:col-span-2" actions={<span className="text-[11px] text-slate-500">critical first</span>}>

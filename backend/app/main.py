@@ -1,5 +1,6 @@
-"""FastAPI application entrypoint for the AICTE validation platform (Validex)."""
+"""FastAPI application entrypoint for Tracenza (SIH26262), built on the Validex validation platform."""
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -79,11 +80,37 @@ def bootstrap_production_admin(db) -> bool:
     return True
 
 
+async def _local_scheduler(interval: int):
+    """Deadline reminders and escalation when Celery is not running (local demo / single-process hosting)."""
+    from app.services.deadline_service import process_due_deadlines
+
+    def sweep():
+        db = SessionLocal()
+        try:
+            return process_due_deadlines(db)
+        finally:
+            db.close()
+
+    while True:
+        await asyncio.sleep(interval)
+        try:
+            result = await asyncio.to_thread(sweep)
+            if result["reminders_created"] or result["escalations_created"]:
+                logger.info("Deadline sweep: %s", result)
+        except Exception:  # never let the scheduler kill the API
+            logger.exception("Deadline sweep failed")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Starting Validex backend...")
+    logger.info("Starting Tracenza backend...")
     init_db()
+    task = None
+    if not settings.USE_CELERY and settings.LOCAL_SCHEDULER_SECONDS > 0:
+        task = asyncio.create_task(_local_scheduler(settings.LOCAL_SCHEDULER_SECONDS))
     yield
+    if task:
+        task.cancel()
 
 
 app = FastAPI(

@@ -43,7 +43,7 @@ export const Header: React.FC<{ onMenuClick?: () => void }> = ({ onMenuClick }) 
           />
         </form>
       ) : (
-        <p className="hidden text-sm text-slate-600 sm:block">Prepare and submit your AICTE approval application.</p>
+        <p className="hidden text-sm text-slate-600 sm:block">Prepare, submit and track your approval application.</p>
       )}
 
       <div className="flex shrink-0 items-center gap-2 sm:gap-4">
@@ -54,7 +54,7 @@ export const Header: React.FC<{ onMenuClick?: () => void }> = ({ onMenuClick }) 
             <span>Decision-support mode</span>
           </div>
         )}
-        <button onClick={() => navigate(isInstitution ? '/notices' : '/deadlines')} aria-label={isInstitution ? 'Clarification requests' : 'Notifications and deadlines'} className="relative p-2 rounded-xl bg-slate-100/80 border border-slate-200 text-slate-600 hover:text-slate-900 cursor-pointer">
+        <button onClick={() => navigate('/alerts')} aria-label="Alerts and escalations" className="relative p-2 rounded-xl bg-slate-100/80 border border-slate-200 text-slate-600 hover:text-slate-900 cursor-pointer">
             <Bell className="w-4 h-4" />
             {openNotices > 0 && (
               <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center">{openNotices}</span>

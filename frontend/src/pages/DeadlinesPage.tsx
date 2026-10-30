@@ -37,7 +37,7 @@ export const DeadlinesPage: React.FC = () => {
     try {
       await deadlinesApi.create({ application_id: appId, kind, title, due_at: new Date(dueAt).toISOString(),
         description: description || undefined, remind_before_hours: 24, escalate_after_hours: 24 });
-      setTitle(''); setDescription(''); await refresh(); setMessage('Deadline saved. Reminder and escalation state is stored in Validex.');
+      setTitle(''); setDescription(''); await refresh(); setMessage('Deadline saved. Reminder and escalation state is stored in Tracenza.');
     } catch (e) { setMessage(errorMessage(e)); } finally { setBusy(false); }
   };
 
